@@ -1,0 +1,24 @@
+{
+  "resolution": [
+    1920,
+    1080
+  ],
+  "output_path": "test_output.mp4",
+  "clips": [
+    {
+      "path": "video1.mp4",
+      "transition": "fade"
+    },
+    {
+      "path": "video2.mp4",
+      "transition": "wipeleft"
+    }
+  ],
+  "text_overlays": [
+    {
+      "text": "测试",
+      "start_time": 0,
+      "duration": 3
+    }
+  ]
+}

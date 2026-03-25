@@ -1,0 +1,24 @@
+{
+  "resolution": [1920, 1080],
+  "output_path": "output.mp4",
+  "clips": [
+    {
+      "path": "path/to/video1.mp4",
+      "duration": null,
+      "transition": "fade",
+      "transition_duration": 1.0
+    },
+    {
+      "path": "path/to/video2.mp4",
+      "duration": null,
+      "transition": "wipeleft",
+      "transition_duration": 1.5
+    },
+    {
+      "path": "path/to/video3.mp4",
+      "duration": null,
+      "transition": "zoomin",
+      "transition_duration": 1.0
+    }
+  ]
+}

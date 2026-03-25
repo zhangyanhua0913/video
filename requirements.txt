@@ -1,0 +1,15 @@
+# Core runtime dependencies
+fastapi>=0.111.0
+uvicorn>=0.30.0
+python-multipart>=0.0.9
+
+# Optional: install PyYAML if you want to validate local AgentSkill folders
+# with the bundled skill-creator validator.
+# PyYAML>=6.0
+
+# Optional: install PyInstaller to package the desktop client as an exe.
+# pyinstaller>=6.0.0
+
+# System dependencies that must be installed separately:
+# - ffmpeg
+# - ffprobe

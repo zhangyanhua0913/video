@@ -1,0 +1,313 @@
+name: video-mixer
+displayName: 视频混剪工具
+description: 一个强大的视频混剪工具，支持转场、文字叠加、音频淡出、颜色校正等功能
+version: 2.0.0
+author: Video Mixer Team
+license: MIT
+
+# Skill 的主要入口和执行方式
+execution:
+  type: python
+  entrypoint: skill_handler.py
+  language: python3
+  pythonVersion: "3.6+"
+
+# 依赖配置
+dependencies:
+  system:
+    - ffmpeg
+    - ffprobe
+  python: []
+
+# Skill 支持的命令
+commands:
+  # 混剪视频
+  - name: mix
+    displayName: 混剪视频
+    description: 混剪多个视频片段，支持转场、文字、音频处理
+    parameters:
+      - name: output
+        type: string
+        required: true
+        description: 输出视频文件路径
+        example: output.mp4
+      - name: clips
+        type: array
+        required: true
+        description: 视频片段列表
+        items:
+          type: object
+          properties:
+            path:
+              type: string
+              description: 视频文件路径
+            transition:
+              type: string
+              description: 转场效果 (fade, wipeleft, wiperight, zoomin, circleopen, pixelize)
+            transitionDuration:
+              type: number
+              description: 转场时长（秒）
+      - name: resolution
+        type: array
+        description: 输出分辨率 [宽, 高]
+        default: [1920, 1080]
+      - name: textOverlays
+        type: array
+        description: 文字叠加列表
+        items:
+          type: object
+          properties:
+            text:
+              type: string
+            startTime:
+              type: number
+            duration:
+              type: number
+            x:
+              type: string
+            y:
+              type: string
+            fontsize:
+              type: integer
+            fontcolor:
+              type: string
+            fontPath:
+              type: string
+      - name: audioFadeIn
+        type: number
+        description: 音频淡入时长（秒）
+        default: 0
+      - name: audioFadeOut
+        type: number
+        description: 音频淡出时长（秒）
+        default: 0
+      - name: randomizeOrder
+        type: boolean
+        description: 是否在混剪前随机打乱片段顺序
+        default: false
+      - name: randomSeed
+        type: integer
+        description: 用于控制随机顺序的种子
+      - name: voiceover
+        type: object
+        description: 可选的口播配置
+        properties:
+          enabled:
+            type: boolean
+          text:
+            type: string
+          rate:
+            type: integer
+          volume:
+            type: integer
+          voiceName:
+            type: string
+          mixLevel:
+            type: number
+          originalAudioMixLevel:
+            type: number
+      - name: colorCorrection
+        type: object
+        description: 颜色校正参数
+        properties:
+          enabled:
+            type: boolean
+          brightness:
+            type: number
+          contrast:
+            type: number
+          saturation:
+            type: number
+          gamma:
+            type: number
+
+  # 生成缩略图
+  - name: thumbnail
+    displayName: 生成缩略图
+    description: 从视频生成缩略图
+    parameters:
+      - name: videoPath
+        type: string
+        required: true
+        description: 视频文件路径
+      - name: output
+        type: string
+        required: true
+        description: 输出缩略图路径
+      - name: timestamp
+        type: number
+        description: 截图时间点（秒）
+      - name: width
+        type: integer
+        description: 缩略图宽度
+        default: 320
+
+  # 保存配置
+  - name: saveConfig
+    displayName: 保存配置
+    description: 保存混剪配置到文件
+    parameters:
+      - name: config
+        type: object
+        required: true
+        description: 配置对象
+      - name: output
+        type: string
+        required: true
+        description: 输出配置文件路径
+
+  # 加载配置
+  - name: loadConfig
+    displayName: 加载配置
+    description: 从文件加载混剪配置
+    parameters:
+      - name: configPath
+        type: string
+        required: true
+        description: 配置文件路径
+
+  # 获取转场列表
+  - name: listTransitions
+    displayName: 获取转场效果列表
+    description: 获取所有支持的转场效果
+    parameters: []
+
+# 输出格式
+output:
+  type: object
+  properties:
+    success:
+      type: boolean
+      description: 执行是否成功
+    message:
+      type: string
+      description: 执行消息
+    output:
+      oneOf:
+        - type: string
+        - type: object
+        - type: array
+      description: 输出内容，可能是文件路径、对象或列表
+    error:
+      type: string
+      description: 错误信息（如果有）
+
+# Skill 的类别和标签
+categories:
+  - video
+  - media
+  - editing
+
+tags:
+  - video-mixing
+  - transition
+  - text-overlay
+  - audio-processing
+  - color-correction
+  - ffmpeg
+
+# 使用示例
+examples:
+  - name: "基础混剪"
+    command: "mix"
+    parameters:
+      output: "output.mp4"
+      clips:
+        - path: "video1.mp4"
+          transition: "fade"
+          transitionDuration: 1.0
+        - path: "video2.mp4"
+          transition: "wipeleft"
+          transitionDuration: 1.5
+
+  - name: "带文字和音频效果"
+    command: "mix"
+    parameters:
+      output: "video_with_effects.mp4"
+      clips:
+        - path: "video1.mp4"
+          transition: "fade"
+        - path: "video2.mp4"
+          transition: "wipeleft"
+      textOverlays:
+        - text: "欢迎"
+          startTime: 0
+          duration: 3
+          fontsize: 48
+      audioFadeIn: 1.0
+      audioFadeOut: 2.0
+      colorCorrection:
+        enabled: true
+        brightness: 0.1
+        contrast: 1.2
+        saturation: 1.1
+
+  - name: "生成缩略图"
+    command: "thumbnail"
+    parameters:
+      videoPath: "output.mp4"
+      output: "thumbnail.jpg"
+      timestamp: 5
+      width: 320
+
+# 配置选项
+config:
+  # 默认分辨率
+  defaultResolution:
+    width: 1920
+    height: 1080
+  
+  # 默认转场
+  defaultTransition: "fade"
+  defaultTransitionDuration: 1.0
+  
+  # 默认字体大小
+  defaultFontsize: 24
+  defaultFontcolor: "white"
+
+# 权限要求
+permissions:
+  - type: "file"
+    scope: "read"
+    description: "读取视频文件"
+  - type: "file"
+    scope: "write"
+    description: "写入输出文件"
+  - type: "process"
+    description: "执行 FFmpeg 进程"
+
+# 支持的操作系统
+supportedPlatforms:
+  - linux
+  - windows
+  - darwin
+
+# API 端点（如果有网络服务）
+api:
+  baseUrl: "/api/v1/video-mixer"
+  routes:
+    - path: "/mix"
+      method: "POST"
+      handler: "mix_handler"
+    - path: "/thumbnail"
+      method: "POST"
+      handler: "thumbnail_handler"
+    - path: "/transitions"
+      method: "GET"
+      handler: "list_transitions"
+
+# 监控和日志
+monitoring:
+  logLevel: "info"
+  enableMetrics: true
+  metricsPrefix: "video_mixer"
+
+# 更新日志
+changelog:
+  "2.0.0":
+    - "新增文字叠加功能"
+    - "新增音频淡出效果"
+    - "新增颜色校正"
+    - "新增缩略图生成"
+  "1.0.0":
+    - "初始版本发布"
