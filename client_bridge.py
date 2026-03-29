@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Client bridge for invoking the local Python video-mixer skill."""
 
 from __future__ import annotations
@@ -13,8 +14,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib import error, parse, request
 
+import requests
+
 from runtime_manager import RuntimeManager
 from skill_handler import VideoMixerSkillHandler
+
+FIXED_TTS_ACCESS_TOKEN = "nAblyxkQTcVaeBu4M0rKaphRuwkdlbOV"
 
 
 @dataclass
@@ -39,6 +44,16 @@ class ClientResult:
 
 
 class SkillClientBridge:
+    COZE_WORKFLOW_URL = "https://api.coze.cn/v1/workflow/run"
+    COZE_WORKFLOW_ID = "7621492603993276454"
+    COZE_API_TOKEN = "sat_1ioklBC8oH3qXf4EcZzqipjgwFRVuDXP2sAyUREK4rt27S7RyPd1PsDk2hmKSogJ"
+    DEFAULT_COZE_INPUT = (
+        "过年买好物，就来小琰商店！新春特惠火热开启，福利直接拉满！"
+        "全场消费满九十九，立减三十！实实在在的优惠，不玩套路，只给实惠！"
+        "不仅如此，进店还有超多好礼相送，惊喜不断，福利不停！"
+        "新的一年，小琰商店陪你红红火火"
+    )
+
     def __init__(self, skill_name: str = "video-mixer", workdir: Optional[Path] = None):
         self.skill_name = skill_name
         self.workdir = Path(workdir or Path.cwd())
@@ -246,9 +261,11 @@ class SkillClientBridge:
             "Accept": "*/*",
         }
         req = request.Request(url=url, method="POST", data=body, headers=headers)
+        # Force direct connection and ignore system proxy env vars.
+        opener = request.build_opener(request.ProxyHandler({}))
 
         try:
-            with request.urlopen(req, timeout=timeout) as resp:
+            with opener.open(req, timeout=timeout) as resp:
                 status_code = getattr(resp, "status", 200)
                 content_type = (resp.headers.get("Content-Type") or "").lower()
                 data_bytes = resp.read()
@@ -319,6 +336,142 @@ class SkillClientBridge:
             output={"audioPath": str(file_path), "speaker": speaker_value, "format": ext},
             backend="remote",
         )
+
+    def synthesize_tts_http_demo(
+        self,
+        access_token: str,
+        text: str,
+        speaker: str,
+        emotion: str = "",
+        appid: str = "9847999155",
+        cluster: str = "volcano_tts",
+        host: str = "openspeech.bytedance.com",
+        timeout: int = 90,
+    ) -> ClientResult:
+        # Temporarily pin to a fixed token to avoid frontend/config mismatch.
+        token_value = FIXED_TTS_ACCESS_TOKEN
+        content = self._normalize_tts_text(text)
+        if not content:
+            return ClientResult(False, "Voice-over text is empty.", error="missing_text", backend="remote")
+        voice_type = speaker.strip() or "BV700_V2_streaming"
+
+        url = f"https://{host}/api/v1/tts"
+        headers = {
+            "Authorization": f"Bearer;{token_value}",
+            "Content-Type": "application/json; charset=utf-8",
+            "Accept": "application/json",
+        }
+        payload: Dict[str, Any] = {
+            "app": {"appid": appid, "token": "access_token", "cluster": cluster},
+            "user": {"uid": str(uuid.uuid4().hex[:15])},
+            "audio": {
+                "voice_type": voice_type,
+                "encoding": "mp3",
+                "speed_ratio": 1.0,
+                "volume_ratio": 1.0,
+                "pitch_ratio": 1.0,
+            },
+            "request": {
+                "reqid": str(uuid.uuid4()),
+                "text": content,
+                "text_type": "plain",
+                "operation": "query",
+                "with_frontend": 1,
+                "frontend_type": "unitTson",
+            },
+        }
+        if emotion.strip():
+            payload["audio"]["emotion"] = emotion.strip()
+
+        def _post_once(req_text: str) -> ClientResult:
+            local_payload = dict(payload)
+            local_payload["request"] = dict(payload["request"])
+            local_payload["request"]["text"] = req_text
+            try:
+                with requests.Session() as session:
+                    # Force direct connection and ignore system proxy env vars.
+                    session.trust_env = False
+                    # Use `json=` to avoid latin-1 body encoding errors for non-ASCII text.
+                    resp = session.post(url, json=local_payload, headers=headers, timeout=timeout)
+                raw_text = resp.text
+                response_json = resp.json()
+            except Exception as exc:
+                return ClientResult(False, "TTS demo request failed.", error=str(exc), backend="remote")
+
+            code = response_json.get("code")
+            if code not in (3000, "3000", 0, "0"):
+                msg = str(response_json.get("message") or response_json.get("msg") or "TTS demo failed.")
+                return ClientResult(False, f"TTS demo failed: {msg}", error=str(code), backend="remote", raw_output=raw_text[:2000])
+
+            data_b64 = response_json.get("data")
+            if not isinstance(data_b64, str) or not data_b64.strip():
+                return ClientResult(False, "TTS demo response has no audio data.", error="missing_audio", backend="remote")
+
+            try:
+                file_bytes = base64.b64decode(data_b64)
+            except Exception:
+                return ClientResult(False, "TTS demo audio base64 decode failed.", error="invalid_audio_base64", backend="remote")
+
+            if not file_bytes or len(file_bytes) < 256:
+                return ClientResult(False, "TTS demo audio is empty.", error="empty_audio", backend="remote")
+
+            cache_dir = self.workdir / "runtime" / "voice_cache"
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            file_path = cache_dir / f"tts_demo_{uuid.uuid4().hex[:12]}.mp3"
+            file_path.write_bytes(file_bytes)
+
+            timestamp_path = ""
+            matched_path = ""
+            matched_items: List[Dict[str, Any]] = []
+            addition = response_json.get("addition", {})
+            frontend = addition.get("frontend") if isinstance(addition, dict) else None
+            if isinstance(frontend, str) and frontend.strip():
+                try:
+                    frontend_obj = json.loads(frontend)
+                    ts_path = file_path.with_suffix(".timestamps.json")
+                    ts_path.write_text(json.dumps(frontend_obj, ensure_ascii=False, indent=2), encoding="utf-8")
+                    timestamp_path = str(ts_path)
+
+                    coze_input_text = content.strip() or self.DEFAULT_COZE_INPUT
+                    key_phrases = self._fetch_key_phrases_from_coze(coze_input_text)
+                    matched_items = self._match_key_phrases_from_frontend(frontend_obj, key_phrases)
+                    if not matched_items:
+                        matched_items = self._match_key_phrases_from_frontend(frontend_obj, None)
+                    if matched_items:
+                        matched_file = file_path.with_suffix(".matched_key_phrases.json")
+                        matched_file.write_text(json.dumps(matched_items, ensure_ascii=False, indent=2), encoding="utf-8")
+                        matched_path = str(matched_file)
+                except Exception:
+                    timestamp_path = ""
+                    matched_path = ""
+                    matched_items = []
+
+            return ClientResult(
+                True,
+                "TTS demo audio generated.",
+                output={
+                    "audioPath": str(file_path),
+                    "timestampPath": timestamp_path,
+                    "matchedKeyPhrasesPath": matched_path,
+                    "matchedKeyPhrases": matched_items,
+                    "durationMs": addition.get("duration") if isinstance(addition, dict) else None,
+                    "speaker": voice_type,
+                    "format": "mp3",
+                },
+                backend="remote",
+            )
+
+        result = _post_once(content)
+        if result.success:
+            return result
+
+        if str(result.error) == "3011":
+            retry_text = self._simplify_tts_text(content)
+            if retry_text and retry_text != content:
+                retry_result = _post_once(retry_text)
+                if retry_result.success:
+                    return retry_result
+        return result
 
     @classmethod
     def _extract_voice_options(cls, payload: Any) -> List[Dict[str, str]]:
@@ -409,6 +562,140 @@ class SkillClientBridge:
             for item in node:
                 results.extend(cls._iter_dict_nodes(item))
         return results
+
+    @staticmethod
+    def _normalize_tts_text(text: str) -> str:
+        raw = str(text or "")
+        cleaned = (
+            raw.replace("\r\n", "\n")
+            .replace("\r", "\n")
+            .replace("\t", " ")
+            .replace("“", "\"")
+            .replace("”", "\"")
+            .replace("‘", "'")
+            .replace("’", "'")
+        )
+        lines = [line.strip() for line in cleaned.split("\n") if line.strip()]
+        return " ".join(lines).strip()
+
+    def _fetch_key_phrases_from_coze(self, input_text: str) -> List[str]:
+        token = os.environ.get("COZE_API_TOKEN", "").strip() or self.COZE_API_TOKEN
+        workflow_id = os.environ.get("COZE_WORKFLOW_ID", "").strip() or self.COZE_WORKFLOW_ID
+        text_value = (input_text or "").strip() or self.DEFAULT_COZE_INPUT
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        payload = {"workflow_id": workflow_id, "parameters": {"input": text_value}}
+
+        try:
+            with requests.Session() as session:
+                session.trust_env = False
+                resp = session.post(self.COZE_WORKFLOW_URL, headers=headers, json=payload, timeout=20)
+            resp_obj = resp.json()
+            if resp_obj.get("code") != 0:
+                print(f"[Coze API] workflow error: {resp_obj.get('msg') or resp_obj.get('message')}")
+                return []
+            data_raw = resp_obj.get("data")
+            if not isinstance(data_raw, str):
+                print(f"[Coze API] workflow data type invalid: {type(data_raw)}")
+                return []
+            data_obj = json.loads(data_raw)
+            arr = data_obj.get("arr", [])
+            if not isinstance(arr, list):
+                print(f"[Coze API] arr field is not a list: {type(arr)}")
+                return []
+            phrases: List[str] = []
+            for item in arr:
+                if isinstance(item, dict):
+                    phrase = str(item.get("text", "")).strip()
+                    if phrase and phrase not in phrases:
+                        phrases.append(phrase)
+                elif isinstance(item, str):
+                    phrase = item.strip()
+                    if phrase and phrase not in phrases:
+                        phrases.append(phrase)
+            return phrases
+        except Exception as exc:
+            print(f"[Coze API] workflow request failed: {exc}")
+            return []
+
+    @classmethod
+    def _match_key_phrases_from_frontend(
+        cls, frontend_obj: Dict[str, Any], key_phrases: Optional[List[str]]
+    ) -> List[Dict[str, Any]]:
+        words = frontend_obj.get("words", [])
+        if not isinstance(words, list) or not words:
+            return []
+
+        char_positions: List[Dict[str, Any]] = []
+        for item in words:
+            if not isinstance(item, dict):
+                continue
+            word = str(item.get("word", ""))
+            start = item.get("start_time")
+            end = item.get("end_time")
+            if not word:
+                continue
+            if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
+                continue
+            for char in word:
+                char_positions.append({"char": char, "start": float(start), "end": float(end)})
+
+        if not char_positions:
+            return []
+
+        full_text = "".join(item["char"] for item in char_positions)
+        targets = [p for p in (key_phrases or []) if isinstance(p, str) and p.strip()]
+        if not targets:
+            targets = cls._derive_key_phrases_from_text(full_text)
+        if not targets:
+            return []
+
+        results: List[Dict[str, Any]] = []
+        for phrase in targets:
+            search_from = 0
+            while True:
+                start_index = full_text.find(phrase, search_from)
+                if start_index < 0:
+                    break
+                end_index = start_index + len(phrase) - 1
+                if end_index >= len(char_positions):
+                    break
+                results.append(
+                    {
+                        "text": phrase,
+                        "start": char_positions[start_index]["start"],
+                        "end": char_positions[end_index]["end"],
+                    }
+                )
+                search_from = start_index + len(phrase)
+        return results
+
+    @staticmethod
+    def _derive_key_phrases_from_text(full_text: str) -> List[str]:
+        import re
+
+        if not full_text:
+            return []
+        chunks = re.split(r"[，。！？!?,、\s]+", full_text)
+        phrases: List[str] = []
+        for chunk in chunks:
+            phrase = chunk.strip()
+            if len(phrase) < 4:
+                continue
+            if phrase in phrases:
+                continue
+            phrases.append(phrase)
+            if len(phrases) >= 5:
+                break
+        return phrases
+
+    @staticmethod
+    def _simplify_tts_text(text: str) -> str:
+        import re
+
+        normalized = SkillClientBridge._normalize_tts_text(text)
+        # Keep common CJK/ASCII words and basic punctuation only.
+        simplified = re.sub(r"[^0-9A-Za-z\u4e00-\u9fff，。！？、,.!?\-\s]", "", normalized)
+        return re.sub(r"\s+", " ", simplified).strip()
 
     @staticmethod
     def _download_binary(url: str, timeout: int = 90) -> ClientResult:

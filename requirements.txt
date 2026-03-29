@@ -2,6 +2,7 @@
 fastapi>=0.111.0
 uvicorn>=0.30.0
 python-multipart>=0.0.9
+requests>=2.31.0
 
 # Optional: install PyYAML if you want to validate local AgentSkill folders
 # with the bundled skill-creator validator.

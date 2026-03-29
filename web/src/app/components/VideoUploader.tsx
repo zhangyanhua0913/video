@@ -25,6 +25,9 @@ export function VideoUploader({ onVideoSelect, onFilesSelect }: VideoUploaderPro
     setFileCount(files.length);
     onVideoSelect(firstFile);
     onFilesSelect?.(files);
+
+    // Allow re-selecting the same folder next time.
+    event.currentTarget.value = "";
   };
 
   return (
@@ -34,6 +37,10 @@ export function VideoUploader({ onVideoSelect, onFilesSelect }: VideoUploaderPro
         <input
           type="file"
           onChange={handleFolderChange}
+          onClick={(e) => {
+            // Ensure selecting the same folder still triggers onChange.
+            e.currentTarget.value = "";
+          }}
           className="hidden"
           id="folder-upload"
           {...({ webkitdirectory: "", directory: "" } as never)}

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Command handler for the local video-mixer skill runtime.
 """
@@ -81,6 +82,17 @@ class VideoMixerSkillHandler:
                     transition_duration=clip.get("transitionDuration", 1.0),
                 )
 
+            target_duration = params.get("targetDuration")
+            if target_duration is not None:
+                self.mixer.set_target_duration(target_duration)
+
+            background_music = params.get("backgroundMusic")
+            if isinstance(background_music, dict):
+                self.mixer.set_background_music(
+                    tracks=background_music.get("tracks"),
+                    volume=background_music.get("volume", 0.35),
+                )
+
             for overlay in params.get("textOverlays", []) or []:
                 self.mixer.add_text_overlay(
                     overlay.get("text", ""),
@@ -91,6 +103,7 @@ class VideoMixerSkillHandler:
                     fontsize=overlay.get("fontsize", 24),
                     fontcolor=overlay.get("fontcolor", "white"),
                     font_path=overlay.get("fontPath"),
+                    template=overlay.get("template", "default"),
                 )
 
             audio_fade_in = params.get("audioFadeIn", 0)
@@ -125,7 +138,15 @@ class VideoMixerSkillHandler:
                     subtitle_fontsize=voiceover.get("subtitleFontsize", 40),
                     subtitle_fontcolor=voiceover.get("subtitleFontcolor", "white"),
                     subtitle_font_path=voiceover.get("subtitleFontPath"),
+                    subtitle_template=voiceover.get("subtitleTemplate", "subtitle"),
+                    subtitle_effect=voiceover.get("subtitleEffect", "pop"),
+                    popup_template=voiceover.get("popupTemplate", "auto"),
                     match_video_duration=voiceover.get("matchVideoDuration", True),
+                    matched_phrases=voiceover.get("matchedKeyPhrases"),
+                    word_timestamps=voiceover.get("timestampWords"),
+                    popup_lead_time=voiceover.get("popupLeadTime", 0.18),
+                    popup_min_duration=voiceover.get("popupMinDuration", 0.55),
+                    popup_merge_gap=voiceover.get("popupMergeGap", 0.10),
                 )
                 self.mixer.set_external_voiceover_audio(voiceover.get("audioPath"))
 
@@ -143,10 +164,12 @@ class VideoMixerSkillHandler:
                         "clipOrder": [clip["path"] for clip in clips],
                         "randomizedOrder": bool(params.get("randomizeOrder")),
                         "voiceoverEnabled": bool(voiceover and voiceover.get("enabled")),
+                        "backgroundMusic": getattr(self.mixer, "selected_background_music_path", None),
                     },
                 )
 
-            return SkillResponse(False, "Failed to generate the mixed video.", error="Failed to generate video")
+            detail_error = getattr(self.mixer, "last_error", None) or "Failed to generate video"
+            return SkillResponse(False, f"Failed to generate the mixed video: {detail_error}", error=detail_error)
         except Exception as exc:
             return SkillResponse(False, f"Processing failed: {exc}", error=str(exc))
 

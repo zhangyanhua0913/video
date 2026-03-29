@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { VideoUploader } from "./components/VideoUploader";
-import { VideoPreview } from "./components/VideoPreview";
+import { FancyTextShowcase, type FancyTemplateId } from "./components/FancyTextShowcase";
+import { PopupTemplateShowcase, type PopupTemplateId } from "./components/PopupTemplateShowcase";
 import { VoiceSelector } from "./components/VoiceSelector";
 import { VoicePreview } from "./components/VoicePreview";
 import { ScriptEditor } from "./components/ScriptEditor";
@@ -24,26 +25,36 @@ import {
 import { Label } from "./components/ui/label";
 import { Film, Loader2, RefreshCcw, Sparkles } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import { BUILTIN_MANDARIN_VOICES, type VoiceCatalogItem } from "./voiceCatalog";
 
-type VoiceOption = { id: string; name: string; description?: string; code?: string };
+type VoiceOption = VoiceCatalogItem & { code?: string };
+const DEFAULT_ACCESS_TOKEN = "nAblyxkQTcVaeBu4M0rKaphRuwkdlbOV";
 
 export default function App() {
   const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState<string>("xiaoyun");
+  const [selectedBgmFiles, setSelectedBgmFiles] = useState<File[]>([]);
+  const [bgmFolderName, setBgmFolderName] = useState<string>("");
+  const [selectedVoice, setSelectedVoice] = useState<string>("BV700_V2_streaming");
+  const [selectedEmotion, setSelectedEmotion] = useState<string>("default");
+  const [selectedTemplate, setSelectedTemplate] = useState<FancyTemplateId>("sticker");
+  const [selectedPopupTemplate, setSelectedPopupTemplate] = useState<PopupTemplateId>("auto");
+  const [outputAspect, setOutputAspect] = useState<"landscape" | "portrait">("landscape");
   const [previewVoice, setPreviewVoice] = useState<{ id: string; name: string } | null>(null);
-  const [voices, setVoices] = useState<VoiceOption[]>([]);
-  const [startTime, setStartTime] = useState<number>(0);
-  const [endTime, setEndTime] = useState<number>(0);
+  const [voices, setVoices] = useState<VoiceOption[]>(BUILTIN_MANDARIN_VOICES);
   const [script, setScript] = useState<string>("");
   const [clipCount, setClipCount] = useState<string>("1");
   const [clipDialogOpen, setClipDialogOpen] = useState(false);
   const [enableVoiceover, setEnableVoiceover] = useState(true);
+  const [burnSubtitles, setBurnSubtitles] = useState(true);
   const [voiceoverTopic, setVoiceoverTopic] = useState("");
-  const [targetSeconds, setTargetSeconds] = useState("40");
-  const [voiceToken, setVoiceToken] = useState("");
+  const [targetSeconds, setTargetSeconds] = useState("");
+  const [voiceToken, setVoiceToken] = useState(DEFAULT_ACCESS_TOKEN);
   const [loadingVoices, setLoadingVoices] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [popupLeadTime, setPopupLeadTime] = useState<number>(0.18);
+  const [popupMinDuration, setPopupMinDuration] = useState<number>(0.55);
+  const [popupMergeGap, setPopupMergeGap] = useState<number>(0.1);
 
   useEffect(() => {
     let active = true;
@@ -54,44 +65,7 @@ export default function App() {
         if (!active) return;
         if (data?.success && typeof data?.settings?.voiceToken === "string") {
           const cachedToken = String(data.settings.voiceToken || "").trim();
-          setVoiceToken(cachedToken);
-          if (cachedToken) {
-            setLoadingVoices(true);
-            try {
-              const voicesResp = await fetch("/api/voices", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token: cachedToken, refresh: true }),
-              });
-              const voicesData = await voicesResp.json();
-              if (voicesData?.success) {
-                const parsed: VoiceOption[] = (Array.isArray(voicesData.voices) ? voicesData.voices : []).map(
-                  (item: { value?: string; label?: string; name?: string; code?: string }) => {
-                    const code = String(item.code || item.value || "");
-                    const name = String(item.name || item.label || code || "Unknown Voice");
-                    return {
-                      id: code,
-                      name,
-                      code,
-                      description: code,
-                    };
-                  }
-                );
-                if (active) {
-                  setVoices(parsed);
-                  if (parsed.length > 0) {
-                    setSelectedVoice(parsed[0].id);
-                  }
-                }
-              }
-            } catch {
-              // Ignore auto-fetch failures on initial load.
-            } finally {
-              if (active) {
-                setLoadingVoices(false);
-              }
-            }
-          }
+          setVoiceToken(cachedToken || DEFAULT_ACCESS_TOKEN);
         }
       } catch {
         // Ignore loading errors.
@@ -108,7 +82,7 @@ export default function App() {
     try {
       await fetch("/api/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({ voiceToken: tokenToSave }),
       });
     } catch {
@@ -116,29 +90,78 @@ export default function App() {
     }
   };
 
+  const voiceSelectorVoices = useMemo(() => {
+    return voices.length ? voices : BUILTIN_MANDARIN_VOICES;
+  }, [voices]);
+
   const voiceNameMap = useMemo(() => {
-    const map: Record<string, string> = {
-      xiaoyun: "晓云",
-      yunyang: "云扬",
-      xiaochen: "晓辰",
-      yunxiao: "云霄",
-      xiaomeng: "晓梦",
-      yunhao: "云浩",
-    };
-    voices.forEach((item) => {
+    const map: Record<string, string> = {};
+    voiceSelectorVoices.forEach((item) => {
       map[item.id] = item.name;
     });
     return map;
-  }, [voices]);
+  }, [voiceSelectorVoices]);
 
-  const handleTimeRangeChange = (start: number, end: number) => {
-    setStartTime(start);
-    setEndTime(end);
+  const selectedVoiceEmotionOptions = useMemo(() => {
+    const item = voiceSelectorVoices.find((voice) => voice.id === selectedVoice);
+    return item?.emotions || [];
+  }, [selectedVoice, voiceSelectorVoices]);
+
+  useEffect(() => {
+    setSelectedEmotion("default");
+  }, [selectedVoice]);
+
+  useEffect(() => {
+    if (script.trim()) {
+      setBurnSubtitles(true);
+    }
+  }, [script]);
+
+  const handleBurnSubtitlesChange = (checked: boolean) => {
+    if (checked && !script.trim() && !enableVoiceover) {
+      toast.error("请先输入口播文案，或开启自动AI口播。");
+      return;
+    }
+    setBurnSubtitles(checked);
   };
 
   const handleVoicePreview = (voiceId: string) => {
     setPreviewVoice({ id: voiceId, name: voiceNameMap[voiceId] || voiceId });
   };
+
+  const templateNameMap: Record<FancyTemplateId, string> = {
+    sticker: "贴纸",
+    neon: "霓虹",
+    karaoke: "卡拉 OK",
+    subtitle: "电影字幕",
+    default: "基础",
+    transparent_outline: "透明描边",
+    transparent_neon: "透明霓虹",
+    transparent_subtitle: "透明字幕",
+    promo_tag: "促销价签",
+    brand_banner: "品牌横幅",
+    news_flash: "快讯条",
+    luxury_minimal: "高端极简",
+        yellow_black_bold: "黄字黑粗描边",
+    yellow_black_glow: "金黄发光描边",
+    yellow_orange_flash: "橙黄高亮字",
+    black_plate_yellow: "黑底黄字牌",
+    popup_zoom_gold: "弹出-金色爆炸",
+    popup_bounce_red: "弹出-红色冲击",
+    popup_neon_flash: "弹出-霓虹闪烁",
+    popup_explosion: "弹出-炸裂特效",
+    popup_scale_purple: "弹出-紫色缩放",
+    popup_shake_yellow: "弹出-黄色震动",
+  };
+  const popupTemplateOptions: { value: PopupTemplateId; label: string }[] = [
+    { value: "auto", label: "自动（跟随花字模板）" },
+    { value: "popup_zoom_gold", label: "弹出-金色爆炸" },
+    { value: "popup_bounce_red", label: "弹出-红色冲击" },
+    { value: "popup_neon_flash", label: "弹出-霓虹闪烁" },
+    { value: "popup_explosion", label: "弹出-炸裂特效" },
+    { value: "popup_scale_purple", label: "弹出-紫色缩放" },
+    { value: "popup_shake_yellow", label: "弹出-黄色震动" },
+  ];
 
   const handleOpenClipDialog = () => {
     if (!selectedVideo) {
@@ -152,8 +175,12 @@ export default function App() {
     const hasScript = Boolean(script.trim());
     const hasTopic = Boolean(voiceoverTopic.trim());
     const secs = Number.parseInt(targetSeconds, 10);
-    if (!hasScript && !hasTopic && (!Number.isFinite(secs) || secs <= 0)) {
-      toast.error("请先输入目标视频秒数。");
+    if (!hasScript && (!Number.isFinite(secs) || secs <= 0)) {
+      toast.error("请先输入剪辑秒数。");
+      return;
+    }
+    if (enableVoiceover && !hasScript && !hasTopic) {
+      toast.error("请先输入文案主题，或关闭 AI 口播后按秒数剪辑。");
       return;
     }
     setClipDialogOpen(false);
@@ -182,7 +209,7 @@ export default function App() {
   async function generateScriptFromApi(requirement: string): Promise<string> {
     const resp = await fetch("/api/script", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json; charset=utf-8" },
       body: JSON.stringify({ requirement, seconds: 40 }),
     });
     const data = await resp.json();
@@ -193,44 +220,9 @@ export default function App() {
   }
 
   const fetchVoices = async () => {
-    if (!voiceToken.trim()) {
-      toast.error("请先填写 Token");
-      return;
-    }
     await persistSettings(voiceToken);
-    setLoadingVoices(true);
-    try {
-      const resp = await fetch("/api/voices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: voiceToken, refresh: true }),
-      });
-      const data = await resp.json();
-      if (!data.success) {
-        throw new Error(data.message || "音色拉取失败");
-      }
-      const parsed: VoiceOption[] = (Array.isArray(data.voices) ? data.voices : []).map(
-        (item: { value?: string; label?: string; name?: string; code?: string }) => {
-          const code = String(item.code || item.value || "");
-          const name = String(item.name || item.label || code || "未命名音色");
-          return {
-            id: code,
-            name,
-            code,
-            description: code,
-          };
-        }
-      );
-      setVoices(parsed);
-      if (parsed.length > 0) {
-        setSelectedVoice(parsed[0].id);
-      }
-      toast.success(`已拉取 ${parsed.length} 个音色`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "音色拉取失败");
-    } finally {
-      setLoadingVoices(false);
-    }
+    setVoices(BUILTIN_MANDARIN_VOICES);
+    toast.success(`已加载内置音色 ${BUILTIN_MANDARIN_VOICES.length} 个`);
   };
 
   const handleExport = async () => {
@@ -238,11 +230,6 @@ export default function App() {
       toast.error("请先选择素材目录");
       return;
     }
-    if (enableVoiceover && !script.trim() && !voiceoverTopic.trim()) {
-      toast.error("请先输入或生成口播文案");
-      return;
-    }
-
     setExporting(true);
     try {
       let scriptToUse = script.trim();
@@ -251,8 +238,15 @@ export default function App() {
         scriptToUse = generated.trim();
         setScript(scriptToUse);
       }
-      const useVoiceover = Boolean(scriptToUse);
-      const targetDuration = !useVoiceover ? Number.parseInt(targetSeconds, 10) : undefined;
+      const useVoiceover = enableVoiceover && Boolean(scriptToUse);
+      const parsedTargetSeconds = Number.parseInt(targetSeconds, 10);
+      if (!useVoiceover && (!Number.isFinite(parsedTargetSeconds) || parsedTargetSeconds <= 0)) {
+        throw new Error("请先输入剪辑秒数。");
+      }
+      if (enableVoiceover && !useVoiceover) {
+        throw new Error("请先输入文案主题，或关闭 AI 口播后按秒数剪辑。");
+      }
+      const targetDuration = !useVoiceover ? parsedTargetSeconds : undefined;
 
       const uploadForm = new FormData();
       selectedFiles.forEach((file) => uploadForm.append("files", file));
@@ -262,31 +256,55 @@ export default function App() {
         throw new Error(uploadData.message || "素材上传失败");
       }
       const clips: string[] = Array.isArray(uploadData.clips) ? uploadData.clips : [];
+      let bgmTracks: string[] = [];
+      if (selectedBgmFiles.length > 0) {
+        const bgmForm = new FormData();
+        selectedBgmFiles.forEach((file) => bgmForm.append("files", file));
+        const bgmResp = await fetch("/api/upload-bgm", { method: "POST", body: bgmForm });
+        const bgmData = await bgmResp.json();
+        if (!bgmData.success) {
+          throw new Error(bgmData.message || "背景音乐上传失败");
+        }
+        bgmTracks = Array.isArray(bgmData.tracks) ? bgmData.tracks : [];
+      }
       const count = Math.max(1, Number.parseInt(clipCount, 10) || 1);
 
       for (let i = 0; i < count; i += 1) {
         const outputName = count === 1 ? "mixed_output.mp4" : `mixed_output_${i + 1}.mp4`;
+        const resolution = outputAspect === "portrait" ? [1080, 1920] : [1920, 1080];
         const mixResp = await fetch("/api/mix", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json; charset=utf-8" },
           body: JSON.stringify({
             clips,
             outputName,
+            resolution,
             transition: "fade",
             transitionDuration: 1.0,
             randomizeOrder: true,
+            bgmTracks,
+            bgmVolume: 0.35,
             overlayText: "",
             targetDuration,
-            voiceover: {
-              enabled: useVoiceover,
-              text: scriptToUse,
-              token: voiceToken,
-              speaker: selectedVoice,
-              subtitlesEnabled: true,
-              subtitleFontsize: 40,
-              subtitleFontcolor: "white",
-              matchVideoDuration: true,
-            },
+              voiceover: {
+                enabled: useVoiceover,
+                text: scriptToUse,
+                token: voiceToken,
+                voiceType: selectedVoice,
+                speaker: selectedVoice,
+                ...(selectedEmotion !== "default" ? { emotion: selectedEmotion } : {}),
+                originalAudioMixLevel: 0.0,
+                subtitlesEnabled: burnSubtitles,
+                subtitleTemplate: selectedTemplate,
+                subtitleEffect: ["yellow_black_bold", "yellow_black_glow", "yellow_orange_flash", "black_plate_yellow"].includes(selectedTemplate) ? "none" : "pop",
+                popupTemplate: selectedPopupTemplate,
+                subtitleFontsize: 40,
+                subtitleFontcolor: "white",
+                matchVideoDuration: true,
+                popupLeadTime,
+                popupMinDuration,
+                popupMergeGap,
+              },
           }),
         });
         const mixData = await mixResp.json();
@@ -306,12 +324,26 @@ export default function App() {
     }
   };
 
-  const voiceSelectorVoices = voices.length
-    ? voices
-    : [
-        { id: "xiaoyun", name: "晓云", description: "默认温柔女声" },
-        { id: "yunyang", name: "云扬", description: "默认沉稳男声" },
-      ];
+  const handleBgmFolderChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const allFiles = Array.from(event.target.files || []);
+    const audioFiles = allFiles.filter((file) => {
+      const name = file.name.toLowerCase();
+      return [".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg"].some((suffix) => name.endsWith(suffix));
+    });
+
+    if (audioFiles.length === 0) {
+      toast.error("该目录没有可用的音频文件");
+      event.currentTarget.value = "";
+      return;
+    }
+
+    const firstFile = audioFiles[0];
+    const rel = (firstFile as File & { webkitRelativePath?: string }).webkitRelativePath || firstFile.name;
+    const folder = rel.includes("/") ? rel.split("/")[0] : "已选择背景音乐";
+    setBgmFolderName(folder);
+    setSelectedBgmFiles(audioFiles);
+    event.currentTarget.value = "";
+  };
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-gray-50 to-slate-100">
@@ -397,10 +429,22 @@ export default function App() {
               <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
               <div className="relative mb-4 flex items-center gap-2.5">
                 <div className="h-7 w-1 rounded-full bg-gradient-to-b from-purple-500 via-pink-500 to-pink-600 shadow-lg shadow-purple-500/40" />
-                <h2 className="bg-gradient-to-r from-purple-700 to-pink-700 bg-clip-text text-lg font-bold text-transparent">视频预览与剪辑</h2>
+                <h2 className="bg-gradient-to-r from-purple-700 to-pink-700 bg-clip-text text-lg font-bold text-transparent">花字展示</h2>
               </div>
               <div className="relative">
-                <VideoPreview videoFile={selectedVideo} startTime={startTime} endTime={endTime} onTimeRangeChange={handleTimeRangeChange} onStartClip={handleOpenClipDialog} />
+                <FancyTextShowcase selectedTemplate={selectedTemplate} onSelectTemplate={setSelectedTemplate} />
+              </div>
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl border border-gray-200/60 bg-white/85 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-2xl">
+              <div className="absolute bottom-0 left-0 h-72 w-72 rounded-full bg-gradient-to-tr from-amber-200/20 to-transparent blur-3xl" />
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
+              <div className="relative mb-4 flex items-center gap-2.5">
+                <div className="h-7 w-1 rounded-full bg-gradient-to-b from-amber-500 via-orange-500 to-red-500 shadow-lg shadow-amber-500/40" />
+                <h2 className="bg-gradient-to-r from-amber-700 to-orange-700 bg-clip-text text-lg font-bold text-transparent">弹出模板展示</h2>
+              </div>
+              <div className="relative">
+                <PopupTemplateShowcase selectedTemplate={selectedPopupTemplate} onSelectTemplate={setSelectedPopupTemplate} />
               </div>
             </div>
           </div>
@@ -429,6 +473,24 @@ export default function App() {
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/60 to-transparent" />
               <div className="relative z-10">
                 <VoiceSelector selectedVoice={selectedVoice} onVoiceChange={setSelectedVoice} onPreview={handleVoicePreview} voices={voiceSelectorVoices} />
+                {selectedVoiceEmotionOptions.length > 0 && (
+                  <div className="mt-3 space-y-2 rounded-xl border border-cyan-200 bg-cyan-50/40 p-3">
+                    <Label className="text-sm font-semibold text-cyan-800">情感/风格</Label>
+                    <Select value={selectedEmotion} onValueChange={setSelectedEmotion}>
+                      <SelectTrigger className="border-cyan-200 bg-white/90">
+                        <SelectValue placeholder="选择情感（默认通用）" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">通用（默认）</SelectItem>
+                        {selectedVoiceEmotionOptions.map((item) => (
+                          <SelectItem key={item.value} value={item.value}>
+                            {item.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -448,7 +510,7 @@ export default function App() {
                 </div>
                 <div className="flex items-center justify-between rounded-xl border border-purple-100/80 bg-gradient-to-r from-purple-50/90 to-pink-50/90 p-3.5 shadow-sm backdrop-blur">
                   <span className="font-semibold text-gray-600">剪辑时长</span>
-                  <span className="font-bold text-purple-700">{(endTime - startTime).toFixed(1)} 秒</span>
+                  <span className="font-bold text-purple-700">{templateNameMap[selectedTemplate]}</span>
                 </div>
                 <div className="flex items-center justify-between rounded-xl border border-pink-100/80 bg-gradient-to-r from-pink-50/90 to-rose-50/90 p-3.5 shadow-sm backdrop-blur">
                   <span className="font-semibold text-gray-600">配音音色</span>
@@ -476,14 +538,143 @@ export default function App() {
                 </Select>
               </div>
 
+              <div className="relative mt-4 space-y-2">
+                <Label className="text-sm font-semibold text-gray-700">输出画幅</Label>
+                <Select value={outputAspect} onValueChange={(v) => setOutputAspect(v as "landscape" | "portrait")}>
+                  <SelectTrigger className="border-blue-200 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 font-semibold shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <SelectValue placeholder="选择画幅" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="landscape">横版 16:9（1920x1080）</SelectItem>
+                    <SelectItem value="portrait">竖版 9:16（1080x1920）</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="relative mt-4 space-y-2 rounded-xl border border-sky-200/60 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 p-3 backdrop-blur">
+                <Label htmlFor="bgm-folder-upload" className="cursor-pointer text-sm font-bold text-gray-800">
+                  背景音乐目录（可选）
+                </Label>
+                <input
+                  id="bgm-folder-upload"
+                  type="file"
+                  onChange={handleBgmFolderChange}
+                  onClick={(e) => {
+                    e.currentTarget.value = "";
+                  }}
+                  className="hidden"
+                  {...({ webkitdirectory: "", directory: "" } as never)}
+                  multiple
+                  accept=".mp3,.wav,.m4a,.aac,.flac,.ogg"
+                />
+                <label htmlFor="bgm-folder-upload" className="block cursor-pointer rounded-lg border border-sky-300 bg-white/90 px-3 py-2 text-center text-sm font-semibold text-sky-700 hover:bg-sky-50">
+                  {selectedBgmFiles.length > 0 ? "更换背景音乐目录" : "选择背景音乐目录"}
+                </label>
+                <p className="text-xs text-gray-600">
+                  {selectedBgmFiles.length > 0
+                    ? `${bgmFolderName || "已选择"} · 共 ${selectedBgmFiles.length} 首，每条视频随机选 1 首`
+                    : "不选择则不额外叠加背景音乐"}
+                </p>
+              </div>
+
               <div className="relative mt-4 flex items-center justify-between rounded-xl border border-purple-200/60 bg-gradient-to-r from-purple-50/80 to-pink-50/80 p-3 backdrop-blur">
                 <div className="space-y-0.5">
                   <Label htmlFor="enable-voiceover-main" className="cursor-pointer text-sm font-bold text-gray-800">
                     启用口播
                   </Label>
-                  <p className="text-xs text-gray-600">开启后会合成语音并自动烧录字幕</p>
+                  <p className="text-xs text-gray-600">开启后会合成语音</p>
                 </div>
                 <Switch id="enable-voiceover-main" checked={enableVoiceover} onCheckedChange={setEnableVoiceover} />
+              </div>
+              <div className="relative mt-3 flex items-center justify-between rounded-xl border border-emerald-200/60 bg-gradient-to-r from-emerald-50/80 to-teal-50/80 p-3 backdrop-blur">
+                <div className="space-y-0.5">
+                  <Label htmlFor="burn-subtitles-main" className="cursor-pointer text-sm font-bold text-gray-800">
+                    烧录字幕
+                  </Label>
+                  <p className="text-xs text-gray-600">与口播开关分开控制</p>
+                </div>
+                <Switch id="burn-subtitles-main" checked={burnSubtitles} onCheckedChange={handleBurnSubtitlesChange} />
+              </div>
+
+              <div className="relative mt-3 space-y-3 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-50/80 to-orange-50/80 p-3 backdrop-blur">
+                <p className="text-sm font-bold text-amber-800">弹出字幕节奏（推荐默认值）</p>
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-gray-700">弹出模板（独立）</Label>
+                  <Select value={selectedPopupTemplate} onValueChange={(v) => setSelectedPopupTemplate(v as PopupTemplateId)}>
+                    <SelectTrigger className="h-9 border-amber-300 bg-white/90 text-xs font-semibold text-amber-800">
+                      <SelectValue placeholder="选择弹出模板" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {popupTemplateOptions.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>
+                          {item.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setPopupLeadTime(0.18);
+                    setPopupMinDuration(0.55);
+                    setPopupMergeGap(0.1);
+                  }}
+                  className="h-8 border-amber-300 bg-white/80 px-3 text-xs font-semibold text-amber-700 hover:bg-amber-50"
+                >
+                  恢复推荐值
+                </Button>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-gray-700">提前弹出</Label>
+                    <span className="text-xs font-bold text-amber-700">{popupLeadTime.toFixed(2)}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={0.5}
+                    step={0.01}
+                    value={popupLeadTime}
+                    onChange={(e) => setPopupLeadTime(Number(e.target.value))}
+                    className="w-full accent-amber-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-gray-700">最短停留</Label>
+                    <span className="text-xs font-bold text-amber-700">{popupMinDuration.toFixed(2)}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.2}
+                    max={1.2}
+                    step={0.01}
+                    value={popupMinDuration}
+                    onChange={(e) => setPopupMinDuration(Number(e.target.value))}
+                    className="w-full accent-amber-600"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-gray-700">联动合并间隔</Label>
+                    <span className="text-xs font-bold text-amber-700">{popupMergeGap.toFixed(2)}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={0.3}
+                    step={0.01}
+                    value={popupMergeGap}
+                    onChange={(e) => setPopupMergeGap(Number(e.target.value))}
+                    className="w-full accent-amber-600"
+                  />
+                </div>
+
+                <p className="text-[11px] text-gray-600">字幕默认贴近底部安全区显示，尽量不挡住画面主体。</p>
               </div>
 
               <div className="relative mt-5">
@@ -517,7 +708,7 @@ export default function App() {
         <DialogContent className="max-w-md border-gray-200 bg-white shadow-2xl">
           <DialogHeader>
             <DialogTitle className="bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-xl font-bold text-transparent">剪辑配置</DialogTitle>
-            <DialogDescription className="font-medium text-gray-600">配置视频剪辑参数，选择是否添加AI口播</DialogDescription>
+            <DialogDescription className="font-medium text-gray-600">配置剪辑参数，口播与烧录字幕可分别控制</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 py-4">
@@ -537,22 +728,24 @@ export default function App() {
               </Select>
             </div>
 
-            <div className="flex items-center justify-between rounded-xl border border-purple-200/60 bg-gradient-to-r from-purple-50/80 to-pink-50/80 p-4 backdrop-blur">
-              <div className="space-y-0.5">
-                <Label htmlFor="enable-voiceover" className="cursor-pointer text-sm font-bold text-gray-800">
-                  添加AI口播
-                </Label>
-                <p className="text-xs text-gray-600">自动生成口播文案并配音</p>
+            {!script.trim() && (
+              <div className="flex items-center justify-between rounded-xl border border-purple-200/60 bg-gradient-to-r from-purple-50/80 to-pink-50/80 p-4 backdrop-blur">
+                <div className="space-y-0.5">
+                  <Label htmlFor="enable-voiceover" className="cursor-pointer text-sm font-bold text-gray-800">
+                    自动AI口播
+                  </Label>
+                  <p className="text-xs text-gray-600">无文案时可自动生成口播文案并配音</p>
+                </div>
+                <Switch
+                  id="enable-voiceover"
+                  checked={enableVoiceover}
+                  onCheckedChange={setEnableVoiceover}
+                  className="scale-125 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-purple-600 data-[state=checked]:to-pink-600 data-[state=unchecked]:bg-gray-300"
+                />
               </div>
-              <Switch
-                id="enable-voiceover"
-                checked={enableVoiceover}
-                onCheckedChange={setEnableVoiceover}
-                className="scale-125 data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-purple-600 data-[state=checked]:to-pink-600 data-[state=unchecked]:bg-gray-300"
-              />
-            </div>
+            )}
 
-            {enableVoiceover && (
+            {enableVoiceover && !script.trim() && (
               <div className="animate-in slide-in-from-top-2 fade-in space-y-2 duration-300">
                 <Label htmlFor="voiceover-topic" className="text-sm font-semibold text-gray-700">
                   文案主题
@@ -568,7 +761,17 @@ export default function App() {
               </div>
             )}
 
-            {!script.trim() && !voiceoverTopic.trim() && (
+            <div className="flex items-center justify-between rounded-xl border border-emerald-200/60 bg-gradient-to-r from-emerald-50/80 to-teal-50/80 p-4 backdrop-blur">
+              <div className="space-y-0.5">
+                <Label htmlFor="burn-subtitles" className="cursor-pointer text-sm font-bold text-gray-800">
+                  烧录字幕
+                </Label>
+                <p className="text-xs text-gray-600">与自动AI口播分开控制</p>
+              </div>
+              <Switch id="burn-subtitles" checked={burnSubtitles} onCheckedChange={handleBurnSubtitlesChange} className="scale-125" />
+            </div>
+
+            {!script.trim() && (
               <div className="space-y-2">
                 <Label htmlFor="target-seconds" className="text-sm font-semibold text-gray-700">
                   目标视频秒数
@@ -600,3 +803,5 @@ export default function App() {
     </div>
   );
 }
+
+
