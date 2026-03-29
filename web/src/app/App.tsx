@@ -55,6 +55,7 @@ export default function App() {
   const [popupLeadTime, setPopupLeadTime] = useState<number>(0.18);
   const [popupMinDuration, setPopupMinDuration] = useState<number>(0.55);
   const [popupMergeGap, setPopupMergeGap] = useState<number>(0.1);
+  const [popupEnabled, setPopupEnabled] = useState<boolean>(true);
 
   useEffect(() => {
     let active = true;
@@ -283,7 +284,7 @@ export default function App() {
             transitionDuration: 1.0,
             randomizeOrder: true,
             bgmTracks,
-            bgmVolume: 0.35,
+            bgmVolume: 0.45,
             overlayText: "",
             targetDuration,
               voiceover: {
@@ -297,8 +298,9 @@ export default function App() {
                 subtitlesEnabled: burnSubtitles,
                 subtitleTemplate: selectedTemplate,
                 subtitleEffect: ["yellow_black_bold", "yellow_black_glow", "yellow_orange_flash", "black_plate_yellow"].includes(selectedTemplate) ? "none" : "pop",
+                popupEnabled,
                 popupTemplate: selectedPopupTemplate,
-                subtitleFontsize: 40,
+                subtitleFontsize: 48,
                 subtitleFontcolor: "white",
                 matchVideoDuration: true,
                 popupLeadTime,
@@ -598,6 +600,12 @@ export default function App() {
 
               <div className="relative mt-3 space-y-3 rounded-xl border border-amber-200/60 bg-gradient-to-r from-amber-50/80 to-orange-50/80 p-3 backdrop-blur">
                 <p className="text-sm font-bold text-amber-800">弹出字幕节奏（推荐默认值）</p>
+                <div className="flex items-center justify-between rounded-lg border border-amber-300/70 bg-white/70 p-2">
+                  <Label htmlFor="popup-enabled" className="cursor-pointer text-xs font-semibold text-gray-700">
+                    启用弹出特效
+                  </Label>
+                  <Switch id="popup-enabled" checked={popupEnabled} onCheckedChange={setPopupEnabled} />
+                </div>
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-gray-700">弹出模板（独立）</Label>
                   <Select value={selectedPopupTemplate} onValueChange={(v) => setSelectedPopupTemplate(v as PopupTemplateId)}>
@@ -803,5 +811,6 @@ export default function App() {
     </div>
   );
 }
+
 
 

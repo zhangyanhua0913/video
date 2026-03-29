@@ -42,13 +42,14 @@ class VideoMixer:
         },
         "subtitle": {
             "box": 1,
-            "boxcolor": "black@0.60",
+            "boxcolor": "black@0.72",
             "boxborderw": 14,
-            "borderw": 1,
-            "bordercolor": "black@0.82",
-            "shadowcolor": "black@0.50",
-            "shadowx": 1,
-            "shadowy": 1,
+            "borderw": 2,
+            "bordercolor": "black@0.92",
+            "shadowcolor": "black@0.68",
+            "shadowx": 2,
+            "shadowy": 2,
+            "fontcolor": "#FFE9A8",
         },
         "sticker": {
             "box": 1,
@@ -180,57 +181,57 @@ class VideoMixer:
         },
         "popup_zoom_gold": {
             "box": 0,
-            "borderw": 5,
-            "bordercolor": "gold",
-            "shadowx": 1,
-            "shadowy": 1,
-            "shadowcolor": "orange@0.45",
-            "fontcolor": "white",
+            "borderw": 7,
+            "bordercolor": "#FFD54A",
+            "shadowx": 2,
+            "shadowy": 2,
+            "shadowcolor": "#FF9F1C@0.72",
+            "fontcolor": "#FFF8D9",
         },
         "popup_bounce_red": {
             "box": 0,
-            "borderw": 6,
-            "bordercolor": "yellow",
-            "shadowx": 1,
-            "shadowy": 1,
-            "shadowcolor": "orange@0.70",
-            "fontcolor": "red",
+            "borderw": 7,
+            "bordercolor": "#FFE066",
+            "shadowx": 2,
+            "shadowy": 2,
+            "shadowcolor": "#FF5A1F@0.78",
+            "fontcolor": "#FF3B30",
         },
         "popup_neon_flash": {
             "box": 0,
-            "borderw": 4,
-            "bordercolor": "magenta",
-            "shadowx": 1,
-            "shadowy": 1,
-            "shadowcolor": "cyan@0.75",
-            "fontcolor": "cyan",
+            "borderw": 6,
+            "bordercolor": "#FF4FD8",
+            "shadowx": 2,
+            "shadowy": 2,
+            "shadowcolor": "#22D3EE@0.85",
+            "fontcolor": "#B8F6FF",
         },
         "popup_explosion": {
             "box": 0,
-            "borderw": 6,
-            "bordercolor": "red",
-            "shadowx": 1,
-            "shadowy": 1,
-            "shadowcolor": "orange@0.85",
-            "fontcolor": "white",
+            "borderw": 8,
+            "bordercolor": "#FF2D2D",
+            "shadowx": 2,
+            "shadowy": 2,
+            "shadowcolor": "#FF7A00@0.88",
+            "fontcolor": "#FFF7E8",
         },
         "popup_scale_purple": {
             "box": 0,
-            "borderw": 5,
-            "bordercolor": "white",
+            "borderw": 6,
+            "bordercolor": "#FDE2FF",
             "shadowx": 2,
             "shadowy": 2,
-            "shadowcolor": "pink@0.60",
-            "fontcolor": "purple",
+            "shadowcolor": "#F472B6@0.72",
+            "fontcolor": "#9B5DE5",
         },
         "popup_shake_yellow": {
             "box": 0,
-            "borderw": 6,
+            "borderw": 7,
             "bordercolor": "black",
-            "shadowx": 1,
-            "shadowy": 1,
-            "shadowcolor": "orange@0.55",
-            "fontcolor": "yellow",
+            "shadowx": 2,
+            "shadowy": 2,
+            "shadowcolor": "#FFB703@0.65",
+            "fontcolor": "#FFD93D",
         },
     }
 
@@ -255,12 +256,13 @@ class VideoMixer:
         self.voiceover_mix_level = 1.0
         self.original_audio_mix_level = 0.5
         self.voiceover_subtitles_enabled = True
-        self.voiceover_subtitle_fontsize = 40
+        self.voiceover_subtitle_fontsize = 48
         self.voiceover_subtitle_fontcolor = "white"
         self.voiceover_subtitle_font_path: Optional[str] = None
         self.voiceover_subtitle_template = "subtitle"
         self.voiceover_subtitle_effect = "pop"
         self.voiceover_popup_template = "auto"
+        self.voiceover_popup_enabled = True
         self.match_video_to_voiceover = True
         self.external_voiceover_audio_path: Optional[str] = None
         self.voiceover_matched_phrases: List[Dict[str, Any]] = []
@@ -270,7 +272,7 @@ class VideoMixer:
         self.voiceover_popup_merge_gap = 0.10
         self.target_duration: Optional[float] = None
         self.background_music_tracks: List[str] = []
-        self.background_music_volume: float = 0.35
+        self.background_music_volume: float = 0.45
         self.selected_background_music_path: Optional[str] = None
         self.last_error: Optional[str] = None
 
@@ -359,12 +361,13 @@ class VideoMixer:
         mix_level: float = 1.0,
         original_audio_mix_level: float = 0.5,
         subtitles_enabled: bool = True,
-        subtitle_fontsize: int = 40,
+        subtitle_fontsize: int = 48,
         subtitle_fontcolor: str = "white",
         subtitle_font_path: Optional[str] = None,
         subtitle_template: str = "subtitle",
         subtitle_effect: str = "pop",
         popup_template: str = "auto",
+        popup_enabled: bool = True,
         match_video_duration: bool = True,
         matched_phrases: Optional[List[Dict[str, Any]]] = None,
         word_timestamps: Optional[List[Dict[str, Any]]] = None,
@@ -386,6 +389,7 @@ class VideoMixer:
         self.voiceover_subtitle_template = (subtitle_template or "subtitle").strip().lower()
         self.voiceover_subtitle_effect = (subtitle_effect or "pop").strip().lower()
         self.voiceover_popup_template = (popup_template or "auto").strip().lower()
+        self.voiceover_popup_enabled = bool(popup_enabled)
         self.match_video_to_voiceover = bool(match_video_duration)
         self.voiceover_matched_phrases = self._normalize_matched_phrases(matched_phrases)
         self.voiceover_word_timestamps = self._normalize_word_timestamps(word_timestamps)
@@ -446,7 +450,7 @@ class VideoMixer:
         if not words:
             return []
 
-        subtitle_y = "(h-text_h)/3" if self.height > self.width else "h-text_h-145"
+        subtitle_y = "h*2/3-text_h/2+320"
         overlays: List[Dict[str, Any]] = []
         punct = {"，", "。", "！", "？", "；", "、", ",", ".", "!", "?", ";"}
         group_words: List[Dict[str, Any]] = []
@@ -580,7 +584,7 @@ class VideoMixer:
         target = float(target_duration)
         self.target_duration = target if target > 0 else None
 
-    def set_background_music(self, tracks: Optional[List[str]], volume: float = 0.35) -> None:
+    def set_background_music(self, tracks: Optional[List[str]], volume: float = 0.45) -> None:
         normalized: List[str] = []
         for raw in tracks or []:
             path = str(raw or "").strip()
@@ -708,29 +712,13 @@ class VideoMixer:
         effect = str(overlay.get("effect", "") or "").strip().lower()
         if not effect.startswith("pop"):
             return [overlay]
-
-        duration = max(0.2, float(overlay.get("duration", 0.2)))
-        if duration < 0.28:
-            return [overlay]
-
-        base_font = max(12, int(overlay.get("fontsize", 24)))
-        burst_duration = min(0.22, duration * 0.28)
-
-        burst = dict(overlay)
-        burst["fontsize"] = max(base_font + 4, int(base_font * 1.32))
-        burst["duration"] = burst_duration
-        burst["effect"] = "none"
-
-        main = dict(overlay)
-        # Keep pop effect smooth but avoid overlap between burst/main phases.
-        main["start_time"] = float(overlay.get("start_time", 0.0)) + burst_duration
-        main["duration"] = max(0.16, duration - burst_duration)
-        main["fontsize"] = base_font
+        # Keep a fixed font size for the whole popup lifecycle.
+        normalized = dict(overlay)
         if effect == "pop":
-            main["effect"] = "none"
+            normalized["effect"] = "none"
         elif effect.startswith("pop_"):
-            main["effect"] = effect[len("pop_") :]
-        return [burst, main]
+            normalized["effect"] = effect[len("pop_") :]
+        return [normalized]
 
     @staticmethod
     def _resolve_binary(binary_name: str) -> str:
@@ -918,7 +906,7 @@ class VideoMixer:
 
         # Fallback only when no API timestamp words are available.
         if not overlays and segments:
-            subtitle_y = "(h-text_h)/3" if self.height > self.width else "h-text_h-145"
+            subtitle_y = "h*2/3-text_h/2+320"
             total_chars = sum(len(part) for part in segments) or len(segments)
             cursor = 0.0
 
@@ -951,7 +939,7 @@ class VideoMixer:
 
         # Keep the original subtitle burn-in, and add an extra popup layer on top.
         popup_timeline = self._build_popup_phrase_timeline(total_duration)
-        if popup_timeline:
+        if self.voiceover_popup_enabled and popup_timeline:
             configured_popup_template = (self.voiceover_popup_template or "auto").strip().lower()
             popup_template = (
                 configured_popup_template
@@ -959,7 +947,7 @@ class VideoMixer:
                 else self._pick_popup_template(self.voiceover_subtitle_template)
             )
             popup_effect = self._pick_popup_effect(popup_template)
-            popup_fontsize = max(20, int(self.voiceover_subtitle_fontsize * 0.95))
+            popup_fontsize = max(18, int(self.voiceover_subtitle_fontsize))
             for item in popup_timeline:
                 popup_start = float(item["popup_start"])
                 popup_end = float(item["popup_end"])
@@ -1258,7 +1246,7 @@ class VideoMixer:
         output_path: str,
         voiceover_path: Optional[str] = None,
         background_music_path: Optional[str] = None,
-        background_music_volume: float = 0.35,
+        background_music_volume: float = 0.45,
     ) -> bool:
         if voiceover_path is None:
             with tempfile.TemporaryDirectory() as temp_dir:
@@ -1274,7 +1262,7 @@ class VideoMixer:
         voice_duration = max(0.1, self._get_media_duration(voiceover_path))
         safe_bgm_volume = max(0.0, min(float(background_music_volume), 2.0))
         # Keep BGM clearly under the voice-over loudness when narration exists.
-        safe_bgm_volume = min(safe_bgm_volume, max(0.0, float(self.voiceover_mix_level)) * 0.65)
+        safe_bgm_volume = min(safe_bgm_volume, max(0.0, float(self.voiceover_mix_level)) * 0.80)
         if self._has_audio_stream(source_video):
             if bgm_enabled:
                 filter_complex = (
@@ -1361,7 +1349,7 @@ class VideoMixer:
         filters.append(f"{video_inputs}concat=n={len(self.clips)}:v=1:a=0[v]")
         return "; ".join(filters)
 
-    def _build_audio_filter(self, bgm_input_index: Optional[int] = None, bgm_volume: float = 0.35) -> str:
+    def _build_audio_filter(self, bgm_input_index: Optional[int] = None, bgm_volume: float = 0.45) -> str:
         filters = []
         for index, clip in enumerate(self.clips):
             clip_duration = max(0.25, self._get_clip_duration(clip))
@@ -1517,6 +1505,7 @@ class VideoMixer:
                 "subtitle_fontcolor": self.voiceover_subtitle_fontcolor,
                 "subtitle_font_path": self.voiceover_subtitle_font_path,
                 "subtitle_template": self.voiceover_subtitle_template,
+                "popup_enabled": self.voiceover_popup_enabled,
                 "popup_template": self.voiceover_popup_template,
                 "match_video_duration": self.match_video_to_voiceover,
                 "external_audio_path": self.external_voiceover_audio_path,
@@ -1586,10 +1575,11 @@ class VideoMixer:
                 mix_level=voiceover.get("mix_level", 1.0),
                 original_audio_mix_level=voiceover.get("original_audio_mix_level", 0.5),
                 subtitles_enabled=voiceover.get("subtitles_enabled", True),
-                subtitle_fontsize=voiceover.get("subtitle_fontsize", 40),
+                subtitle_fontsize=voiceover.get("subtitle_fontsize", 48),
                 subtitle_fontcolor=voiceover.get("subtitle_fontcolor", "white"),
                 subtitle_font_path=voiceover.get("subtitle_font_path"),
                 subtitle_template=voiceover.get("subtitle_template", "subtitle"),
+                popup_enabled=voiceover.get("popup_enabled", True),
                 popup_template=voiceover.get("popup_template", "auto"),
                 match_video_duration=voiceover.get("match_video_duration", True),
                 matched_phrases=voiceover.get("matched_phrases"),
@@ -1616,4 +1606,5 @@ if __name__ == "__main__":
         print_help()
     else:
         print_help()
+
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Command handler for the local video-mixer skill runtime.
@@ -90,7 +90,7 @@ class VideoMixerSkillHandler:
             if isinstance(background_music, dict):
                 self.mixer.set_background_music(
                     tracks=background_music.get("tracks"),
-                    volume=background_music.get("volume", 0.35),
+                    volume=background_music.get("volume", 0.45),
                 )
 
             for overlay in params.get("textOverlays", []) or []:
@@ -135,11 +135,12 @@ class VideoMixerSkillHandler:
                     mix_level=voiceover.get("mixLevel", 1.0),
                     original_audio_mix_level=voiceover.get("originalAudioMixLevel", 0.5),
                     subtitles_enabled=voiceover.get("subtitlesEnabled", True),
-                    subtitle_fontsize=voiceover.get("subtitleFontsize", 40),
+                    subtitle_fontsize=voiceover.get("subtitleFontsize", 48),
                     subtitle_fontcolor=voiceover.get("subtitleFontcolor", "white"),
                     subtitle_font_path=voiceover.get("subtitleFontPath"),
                     subtitle_template=voiceover.get("subtitleTemplate", "subtitle"),
                     subtitle_effect=voiceover.get("subtitleEffect", "pop"),
+                    popup_enabled=voiceover.get("popupEnabled", True),
                     popup_template=voiceover.get("popupTemplate", "auto"),
                     match_video_duration=voiceover.get("matchVideoDuration", True),
                     matched_phrases=voiceover.get("matchedKeyPhrases"),
@@ -291,3 +292,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

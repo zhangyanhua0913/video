@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Backend API for the web frontend."""
 
@@ -31,8 +31,8 @@ WEB_DIST_DIR = ROOT / "web" / "dist"
 DEFAULT_ACCESS_TOKEN = "nAblyxkQTcVaeBu4M0rKaphRuwkdlbOV"
 DEFAULT_TTS_VOICE = "BV700_V2_streaming"
 FALLBACK_VOICES = [
-    {"name": "湾湾小何（女声）", "code": "zh_female_wanwanxiaohe_moon_bigtts", "value": "zh_female_wanwanxiaohe_moon_bigtts", "label": "湾湾小何（女声）"},
-    {"name": "少年子辛（男声）", "code": "zh_male_shaonianzixin_mars_bigtts", "value": "zh_male_shaonianzixin_mars_bigtts", "label": "少年子辛（男声）"},
+    {"name": "婀炬咕灏忎綍锛堝コ澹帮級", "code": "zh_female_wanwanxiaohe_moon_bigtts", "value": "zh_female_wanwanxiaohe_moon_bigtts", "label": "婀炬咕灏忎綍锛堝コ澹帮級"},
+    {"name": "灏戝勾瀛愯緵锛堢敺澹帮級", "code": "zh_male_shaonianzixin_mars_bigtts", "value": "zh_male_shaonianzixin_mars_bigtts", "label": "灏戝勾瀛愯緵锛堢敺澹帮級"},
 ]
 
 for folder in (UPLOADS_DIR, OUTPUTS_DIR, VOICE_TEXTS_DIR):
@@ -60,10 +60,11 @@ class VoiceoverPayload(BaseModel):
     mixLevel: float = 1.0
     originalAudioMixLevel: float = 0.0
     subtitlesEnabled: bool = True
-    subtitleFontsize: int = 40
+    subtitleFontsize: int = 48
     subtitleFontcolor: str = "white"
     subtitleTemplate: str = "subtitle"
     subtitleEffect: str = "pop"
+    popupEnabled: bool = True
     popupTemplate: str = "auto"
     matchVideoDuration: bool = True
     popupLeadTime: float = 0.18
@@ -91,7 +92,7 @@ class MixRequest(BaseModel):
     randomSeed: Optional[int] = None
     targetDuration: Optional[float] = None
     bgmTracks: List[str] = Field(default_factory=list)
-    bgmVolume: float = 0.35
+    bgmVolume: float = 0.45
     overlayText: str = ""
     voiceover: VoiceoverPayload = Field(default_factory=VoiceoverPayload)
 
@@ -326,6 +327,7 @@ def mix_video(payload: MixRequest) -> Dict[str, Any]:
             "subtitleFontcolor": payload.voiceover.subtitleFontcolor,
             "subtitleTemplate": payload.voiceover.subtitleTemplate,
             "subtitleEffect": payload.voiceover.subtitleEffect,
+            "popupEnabled": payload.voiceover.popupEnabled,
             "popupTemplate": payload.voiceover.popupTemplate,
             "matchVideoDuration": payload.voiceover.matchVideoDuration,
             "popupLeadTime": payload.voiceover.popupLeadTime,
@@ -456,3 +458,4 @@ if WEB_DIST_DIR.exists():
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8765, log_level="info")
+

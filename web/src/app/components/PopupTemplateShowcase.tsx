@@ -32,7 +32,7 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     sample: "限时抢购",
     hint: "亮金边+上跳",
     className:
-      "rounded-md bg-transparent px-5 py-3 text-white [text-shadow:0_0_6px_rgba(255,215,0,0.6)] [-webkit-text-stroke:2px_rgba(255,215,0,0.95)]",
+      "rounded-md bg-transparent px-5 py-3 text-[#FFF8D9] [text-shadow:0_0_6px_rgba(255,159,28,0.72)] [-webkit-text-stroke:2px_rgba(255,213,74,0.95)]",
   },
   {
     id: "popup_bounce_red",
@@ -40,7 +40,7 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     sample: "马上开抢",
     hint: "红黄冲击感",
     className:
-      "rounded-md bg-transparent px-5 py-3 text-red-500 [text-shadow:0_0_5px_rgba(255,69,0,0.55)] [-webkit-text-stroke:2px_rgba(253,224,71,0.95)]",
+      "rounded-md bg-transparent px-5 py-3 text-[#FF3B30] [text-shadow:0_0_6px_rgba(255,90,31,0.75)] [-webkit-text-stroke:2px_rgba(255,224,102,0.95)]",
   },
   {
     id: "popup_neon_flash",
@@ -48,7 +48,7 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     sample: "惊喜加码",
     hint: "霓虹轻浮动",
     className:
-      "rounded-md bg-transparent px-5 py-3 text-cyan-300 [text-shadow:0_0_5px_rgba(34,211,238,0.6)] [-webkit-text-stroke:1.6px_rgba(236,72,153,0.95)]",
+      "rounded-md bg-transparent px-5 py-3 text-[#B8F6FF] [text-shadow:0_0_7px_rgba(34,211,238,0.85)] [-webkit-text-stroke:1.8px_rgba(255,79,216,0.95)]",
   },
   {
     id: "popup_explosion",
@@ -56,7 +56,7 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     sample: "全场狂欢",
     hint: "爆发感最强",
     className:
-      "rounded-md bg-transparent px-5 py-3 text-white [text-shadow:0_0_7px_rgba(249,115,22,0.65)] [-webkit-text-stroke:2px_rgba(239,68,68,0.95)]",
+      "rounded-md bg-transparent px-5 py-3 text-[#FFF7E8] [text-shadow:0_0_8px_rgba(255,122,0,0.88)] [-webkit-text-stroke:2.2px_rgba(255,45,45,0.95)]",
   },
   {
     id: "popup_scale_purple",
@@ -64,7 +64,7 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     sample: "精彩继续",
     hint: "优雅弹出",
     className:
-      "rounded-md bg-transparent px-5 py-3 text-violet-500 [text-shadow:0_0_5px_rgba(244,114,182,0.45)] [-webkit-text-stroke:1.8px_rgba(255,255,255,0.9)]",
+      "rounded-md bg-transparent px-5 py-3 text-[#9B5DE5] [text-shadow:0_0_6px_rgba(244,114,182,0.72)] [-webkit-text-stroke:2px_rgba(253,226,255,0.95)]",
   },
   {
     id: "popup_shake_yellow",
@@ -72,7 +72,7 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     sample: "注意注意",
     hint: "左右抖动",
     className:
-      "rounded-md bg-transparent px-5 py-3 text-yellow-300 [text-shadow:0_0_4px_rgba(251,191,36,0.45)] [-webkit-text-stroke:2.2px_rgba(0,0,0,0.95)]",
+      "rounded-md bg-transparent px-5 py-3 text-[#FFD93D] [text-shadow:0_0_6px_rgba(255,183,3,0.68)] [-webkit-text-stroke:2.2px_rgba(0,0,0,0.95)]",
   },
 ];
 
@@ -122,4 +122,3 @@ export function PopupTemplateShowcase({ selectedTemplate, onSelectTemplate }: Po
     </div>
   );
 }
-
