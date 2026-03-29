@@ -13,7 +13,10 @@ import subprocess
 import sys
 import tempfile
 import time
+import hashlib
 import wave
+from urllib.parse import quote
+import html as html_lib
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -233,7 +236,17 @@ class VideoMixer:
             "shadowcolor": "#FFB703@0.65",
             "fontcolor": "#FFD93D",
         },
+        "popup_half_bg_gold": {
+            "box": 0,
+            "borderw": 1,
+            "bordercolor": "black@0.35",
+            "shadowx": 1,
+            "shadowy": 1,
+            "shadowcolor": "black@0.35",
+            "fontcolor": "white",
+        },
     }
+    CSS_POPUP_TEMPLATE_PATH = r"C:\Users\XiaoYan\Desktop\新建 文本文档 (3).html"
 
     def __init__(self, output_path: str = "output.mp4", resolution: tuple = (1920, 1080)):
         self.clips: List[Dict[str, Any]] = []
@@ -564,6 +577,7 @@ class VideoMixer:
             "popup_explosion": "pop_bounce_y",
             "popup_scale_purple": "pop_float_y",
             "popup_shake_yellow": "pop_shake_x",
+            "popup_half_bg_gold": "pop_float_y",
         }
         return mapping.get(key, "pop_bounce_y")
 
@@ -985,6 +999,9 @@ class VideoMixer:
 
         effective_overlays: List[Dict[str, Any]] = []
         for overlay in overlays:
+            if str(overlay.get("template") or "").strip().lower() == "popup_half_bg_gold":
+                # popup_half_bg_gold 使用“动图叠加”路径，不在普通 drawtext 中渲染
+                continue
             split_items = self._split_overlay_if_too_long(overlay, max_width_ratio=0.86)
             for item in split_items:
                 effective_overlays.extend(self._expand_overlay_effect(item))
@@ -1036,7 +1053,60 @@ class VideoMixer:
                 style_parts.append(f"shadowx={shadowx}")
                 style_parts.append(f"shadowy={shadowy}")
                 style_parts.append(f"shadowcolor={style.get('shadowcolor', 'black@0.65')}")
-            if template_name == "yellow_black_bold":
+            if template_name == "popup_half_bg_gold":
+                fontsize = int(overlay["fontsize"])
+                display_units = sum(2 if ord(ch) > 127 else 1 for ch in overlay["text"])
+                est_text_w = max(int(fontsize * 0.62 * max(display_units, 1)), fontsize * 2)
+                # 对齐 HTML 方案：背景宽度 60%，高度约 45%
+                bg_width = max(int(est_text_w * 0.60), max(int(fontsize * 1.6), 60))
+                bg_height = max(int(fontsize * 0.45), 14)
+                # drawbox 不支持 text_w/text_h，这里将它们替换为可计算的常量，避免坐标跑到左上角
+                bg_x_expr = str(base_x).replace("text_w", str(bg_width))
+                bg_y_base_expr = str(base_y).replace("text_h", str(max(int(fontsize * 0.92), fontsize)))
+                bg_y_expr = f"({bg_y_base_expr})+{max(int(fontsize * 0.32), 8)}"
+                bg_anim_duration = min(1.2, max(0.2, overlay["duration"] * 0.75))
+                bg_anim_end = start + bg_anim_duration
+                bg_color = "white@0.25"
+                # 动画段：从 0 宽度线性增长，避免复杂 if/min/max 表达式导致解析偏移
+                filters.append(
+                    "drawbox="
+                    f"x={bg_x_expr}:"
+                    f"y={bg_y_expr}:"
+                    f"w={bg_width}*(t-{start:.3f})/{bg_anim_duration:.3f}:"
+                    f"h={bg_height}:"
+                    f"color={bg_color}:"
+                    "t=fill:"
+                    f"enable='gte(t,{start:.3f})*lt(t,{bg_anim_end:.3f})'"
+                )
+                # 保持段：动画完成后维持全宽
+                filters.append(
+                    "drawbox="
+                    f"x={bg_x_expr}:"
+                    f"y={bg_y_expr}:"
+                    f"w={bg_width}:"
+                    f"h={bg_height}:"
+                    f"color={bg_color}:"
+                    "t=fill:"
+                    f"enable='gte(t,{bg_anim_end:.3f})*lt(t,{end:.3f})'"
+                )
+                filters.append(
+                    "drawtext="
+                    f"text='{text}':"
+                    f"{font_expr + ':' if font_expr else ''}"
+                    f"fontsize={fontsize}:"
+                    f"fontcolor={resolved_fontcolor}:"
+                    f"x={x_expr}:"
+                    f"y={y_expr}:"
+                    "box=0:"
+                    "borderw=1:"
+                    "bordercolor=black@0.35:"
+                    "shadowx=1:"
+                    "shadowy=1:"
+                    "shadowcolor=black@0.35:"
+                    "fix_bounds=1:"
+                    f"enable='{enable_expr}'"
+                )
+            elif template_name == "yellow_black_bold":
                 filters.append(
                     "drawtext="
                     f"text='{text}':"
@@ -1067,6 +1137,242 @@ class VideoMixer:
                     f"enable='{enable_expr}'"
                 )
         return ",".join(filters)
+
+    def _generate_popup_half_bg_gif(
+        self,
+        text: str,
+        duration: float,
+        fontsize: int,
+        font_path: Optional[str],
+        output_path: str,
+    ) -> None:
+        # Prefer CSS/browser rendering for closer parity with the HTML template.
+        try:
+            if self._generate_popup_half_bg_via_browser_css(text, duration, fontsize, output_path):
+                return
+        except Exception as browser_exc:
+            print(f"[Popup CSS Render] fallback to ffmpeg renderer: {browser_exc}")
+
+        duration = max(0.16, float(duration))
+        fontsize = max(18, int(fontsize))
+        display_units = sum(2 if ord(ch) > 127 else 1 for ch in text)
+        est_text_w = max(int(fontsize * 0.62 * max(display_units, 1)), fontsize * 2)
+        # Align geometry with CSS snippet:
+        # padding: 12px 24px (scaled by fontsize/40), bg width: 60%, bg height: 45%, centered vertically.
+        scale = fontsize / 40.0
+        pad_x = int(round(24 * scale))
+        pad_y = int(round(12 * scale))
+        element_w = est_text_w + pad_x * 2
+        element_h = fontsize + pad_y * 2
+        canvas_w = max(int(element_w * 1.28), 380)
+        canvas_h = max(int(element_h * 2.2), 140)
+        bg_w = max(int(element_w * 0.60), 60)
+        bg_h = max(int(element_h * 0.45), 14)
+        bg_anim_duration = min(1.2, max(0.2, duration * 0.75))
+
+        escaped_text = self._escape_drawtext_text(text)
+        font_expr = ""
+        resolved_font = font_path or self._default_windows_fontfile()
+        if resolved_font:
+            escaped_font_path = resolved_font.replace("\\", "/").replace(":", r"\:")
+            font_expr = f"fontfile='{escaped_font_path}':"
+
+        element_x = int((canvas_w - element_w) / 2)
+        element_y = int((canvas_h - element_h) / 2)
+        text_x = element_x + pad_x
+        text_y = element_y + pad_y
+        bg_y = int(element_y + (element_h - bg_h) / 2)
+
+        vf = (
+            "format=rgba,"
+            f"drawbox=x={element_x}:y={bg_y}:"
+            f"w=if(lt(t\\,{bg_anim_duration:.3f})\\,{bg_w}*t/{bg_anim_duration:.3f}\\,{bg_w}):"
+            f"h={bg_h}:color=white@0.25:t=fill,"
+            f"drawtext={font_expr}text='{escaped_text}':"
+            f"fontsize={fontsize}:fontcolor=white:"
+            f"x={text_x}:y={text_y}:"
+            "borderw=0:"
+            "shadowx=1:shadowy=1:shadowcolor=black@0.25,"
+            "format=yuva420p"
+        )
+
+        cmd = [
+            self._ffmpeg_binary(),
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c=black@0.0:s={canvas_w}x{canvas_h}:r=30:d={duration:.3f}",
+            "-vf",
+            vf,
+            "-an",
+            "-c:v",
+            "libvpx-vp9",
+            "-pix_fmt",
+            "yuva420p",
+            "-auto-alt-ref",
+            "0",
+            output_path,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.strip() or "Failed to generate popup animated asset")
+
+    @staticmethod
+    def _find_headless_browser() -> Optional[str]:
+        candidates = [
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        ]
+        for path in candidates:
+            if os.path.exists(path):
+                return path
+        return None
+
+    def _generate_popup_half_bg_via_browser_css(self, text: str, duration: float, fontsize: int, output_path: str) -> bool:
+        browser = self._find_headless_browser()
+        if not browser:
+            return False
+
+        duration = max(0.16, float(duration))
+        fontsize = max(18, int(fontsize))
+        fps = 30
+        frame_count = max(2, int(round(duration * fps)))
+        reveal_seconds = 1.2
+        reveal_frames = max(1, int(round(reveal_seconds * fps)))
+
+        with tempfile.TemporaryDirectory() as frame_dir:
+            html_path = os.path.join(frame_dir, "popup_template.html")
+            frames_dir = os.path.join(frame_dir, "frames")
+            os.makedirs(frames_dir, exist_ok=True)
+
+            html = ""
+            template_path = self.CSS_POPUP_TEMPLATE_PATH
+            if os.path.exists(template_path):
+                # Be tolerant to local editor encodings (UTF-8/UTF-8 BOM/GBK).
+                for enc in ("utf-8-sig", "utf-8", "gb18030"):
+                    try:
+                        with open(template_path, "r", encoding=enc) as f:
+                            html = f.read()
+                        if html:
+                            break
+                    except UnicodeDecodeError:
+                        continue
+            if not html.strip():
+                return False
+
+            if not re.search(r'<div\s+class=["\']half-bg-text["\'][^>]*>.*?</div>', html, flags=re.S):
+                html = html.replace("</body>", '<div class="half-bg-text"></div></body>')
+
+            # Keep user CSS, only enforce transparent page background for clean alpha overlay.
+            transparent_style = (
+                "<style>"
+                "html,body{background:transparent !important;}"
+                ".half-bg-text{isolation:isolate !important;}"
+                ".half-bg-text::before{z-index:-1 !important;}"
+                "</style>"
+            )
+            # Inject runtime text assignment to avoid encoding corruption in template replacement.
+            text_script = (
+                "<script>"
+                "const __q=new URLSearchParams(location.search);"
+                "const __txt=__q.get('text')||'';"
+                "const __el=document.querySelector('.half-bg-text');"
+                "if(__el){__el.textContent=__txt;}"
+                "</script>"
+            )
+            if "</head>" in html:
+                html = html.replace("</head>", transparent_style + "</head>", 1)
+            else:
+                html = transparent_style + html
+            if "</body>" in html:
+                html = html.replace("</body>", text_script + "</body>", 1)
+            else:
+                html = html + text_script
+
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(html)
+
+            html_file_url = "file:///" + html_path.replace("\\", "/")
+            for i in range(frame_count):
+                budget_ms = int(round((i / fps) * 1000))
+                url = f"{html_file_url}?text={quote(text)}"
+                frame_path = os.path.join(frames_dir, f"frame_{i:04d}.png")
+                shot_cmd = [
+                    browser,
+                    "--headless=new",
+                    "--disable-gpu",
+                    "--hide-scrollbars",
+                    "--default-background-color=00000000",
+                    f"--virtual-time-budget={budget_ms}",
+                    "--window-size=820,220",
+                    f"--screenshot={frame_path}",
+                    url,
+                ]
+                shot = subprocess.run(shot_cmd, capture_output=True, text=False)
+                if shot.returncode != 0 or not os.path.exists(frame_path):
+                    return False
+
+            encode_cmd = [
+                self._ffmpeg_binary(),
+                "-y",
+                "-framerate",
+                str(fps),
+                "-i",
+                os.path.join(frames_dir, "frame_%04d.png"),
+                "-an",
+                "-c:v",
+                "libvpx-vp9",
+                "-pix_fmt",
+                "yuva420p",
+                "-auto-alt-ref",
+                "0",
+                output_path,
+            ]
+            enc = subprocess.run(encode_cmd, capture_output=True, text=False)
+            return enc.returncode == 0 and os.path.exists(output_path)
+
+    def _build_popup_gif_overlay_filter(self, input_label: str, total_duration: float, temp_dir: str) -> tuple[str, str]:
+        overlays = self._build_voiceover_subtitle_overlays(total_duration)
+        popup_overlays = [
+            ov
+            for ov in overlays
+            if str(ov.get("template") or "").strip().lower() == "popup_half_bg_gold"
+        ]
+        if not popup_overlays:
+            return "", input_label
+
+        filter_parts: List[str] = []
+        current_label = input_label
+        for idx, overlay in enumerate(popup_overlays):
+            text = str(overlay.get("text") or "").strip()
+            if not text:
+                continue
+            start = float(overlay.get("start_time", 0.0))
+            duration = max(0.16, float(overlay.get("duration", 0.6)))
+            end = start + duration
+            fontsize = int(overlay.get("fontsize", self.voiceover_subtitle_fontsize))
+            font_path = overlay.get("font_path")
+            digest = hashlib.md5(f"{text}|{duration:.3f}|{fontsize}".encode("utf-8")).hexdigest()[:10]
+            gif_path = os.path.join(temp_dir, f"popup_halfbg_{idx}_{digest}.webm")
+            self._generate_popup_half_bg_gif(text, duration, fontsize, font_path, gif_path)
+
+            escaped_path = gif_path.replace("\\", "/").replace(":", r"\:")
+            movie_label = f"pg{idx}"
+            out_label = f"vpg{idx}"
+            y_expr = str(overlay.get("y") or "h*0.12")
+            filter_parts.append(f"movie='{escaped_path}',setpts=PTS-STARTPTS+{start:.3f}/TB[{movie_label}]")
+            filter_parts.append(
+                f"[{current_label}][{movie_label}]overlay=x='(W-w)/2':y='{y_expr}':"
+                f"enable='gte(t,{start:.3f})*lt(t,{end:.3f})'[{out_label}]"
+            )
+            current_label = out_label
+
+        if not filter_parts:
+            return "", input_label
+        return ";".join(filter_parts), current_label
 
     def _build_color_correction_filter(self) -> str:
         if not self.color_correction_enabled:
@@ -1399,6 +1705,7 @@ class VideoMixer:
             return False
 
         voiceover_dir: Optional[tempfile.TemporaryDirectory[str]] = None
+        popup_gif_dir: Optional[tempfile.TemporaryDirectory[str]] = None
         voiceover_path: Optional[str] = None
         try:
             final_output_path = self.output_path
@@ -1437,6 +1744,16 @@ class VideoMixer:
             if text_filter:
                 filter_complex += f";[{current_video_label}]{text_filter}[v_text]"
                 current_video_label = "v_text"
+
+            popup_gif_dir = tempfile.TemporaryDirectory()
+            popup_filter, popup_output_label = self._build_popup_gif_overlay_filter(
+                current_video_label,
+                self._get_output_duration_estimate(),
+                popup_gif_dir.name,
+            )
+            if popup_filter:
+                filter_complex += f";{popup_filter}"
+                current_video_label = popup_output_label
 
             color_filter = self._build_color_correction_filter()
             if color_filter:
@@ -1483,6 +1800,8 @@ class VideoMixer:
         finally:
             if voiceover_dir is not None:
                 voiceover_dir.cleanup()
+            if popup_gif_dir is not None:
+                popup_gif_dir.cleanup()
 
     def save_config(self, config_path: str) -> None:
         config = {

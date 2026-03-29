@@ -143,7 +143,7 @@ export default function App() {
     brand_banner: "品牌横幅",
     news_flash: "快讯条",
     luxury_minimal: "高端极简",
-        yellow_black_bold: "黄字黑粗描边",
+    yellow_black_bold: "黄字黑粗描边",
     yellow_black_glow: "金黄发光描边",
     yellow_orange_flash: "橙黄高亮字",
     black_plate_yellow: "黑底黄字牌",
@@ -153,6 +153,7 @@ export default function App() {
     popup_explosion: "弹出-炸裂特效",
     popup_scale_purple: "弹出-紫色缩放",
     popup_shake_yellow: "弹出-黄色震动",
+    popup_half_bg_gold: "弹出-半背景金字",
   };
   const popupTemplateOptions: { value: PopupTemplateId; label: string }[] = [
     { value: "auto", label: "自动（跟随花字模板）" },
@@ -162,6 +163,7 @@ export default function App() {
     { value: "popup_explosion", label: "弹出-炸裂特效" },
     { value: "popup_scale_purple", label: "弹出-紫色缩放" },
     { value: "popup_shake_yellow", label: "弹出-黄色震动" },
+    { value: "popup_half_bg_gold", label: "弹出-半背景金字" },
   ];
 
   const handleOpenClipDialog = () => {

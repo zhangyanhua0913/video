@@ -1,4 +1,4 @@
-import { Sparkles, Type, BadgeCheck, Zap } from "lucide-react";
+﻿import { Sparkles, Type, BadgeCheck, Zap } from "lucide-react";
 
 export type PopupTemplateId =
   | "auto"
@@ -7,7 +7,8 @@ export type PopupTemplateId =
   | "popup_neon_flash"
   | "popup_explosion"
   | "popup_scale_purple"
-  | "popup_shake_yellow";
+  | "popup_shake_yellow"
+  | "popup_half_bg_gold";
 
 type PopupTemplate = {
   id: PopupTemplateId;
@@ -30,7 +31,7 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     id: "popup_zoom_gold",
     name: "金色爆炸",
     sample: "限时抢购",
-    hint: "亮金边+上跳",
+    hint: "亮金边 + 上跳",
     className:
       "rounded-md bg-transparent px-5 py-3 text-[#FFF8D9] [text-shadow:0_0_6px_rgba(255,159,28,0.72)] [-webkit-text-stroke:2px_rgba(255,213,74,0.95)]",
   },
@@ -73,6 +74,14 @@ const POPUP_TEMPLATES: PopupTemplate[] = [
     hint: "左右抖动",
     className:
       "rounded-md bg-transparent px-5 py-3 text-[#FFD93D] [text-shadow:0_0_6px_rgba(255,183,3,0.68)] [-webkit-text-stroke:2.2px_rgba(0,0,0,0.95)]",
+  },
+  {
+    id: "popup_half_bg_gold",
+    name: "半背景滑入",
+    sample: "风遇山止",
+    hint: "白字 + 半透明半背景",
+    className:
+      "rounded-md bg-white/25 px-5 py-3 text-white [text-shadow:0_0_6px_rgba(0,0,0,0.35)]",
   },
 ];
 

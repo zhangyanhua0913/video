@@ -1,4 +1,4 @@
-import { Sparkles, Highlighter, Type, MessageSquareText, BadgeCheck } from "lucide-react";
+﻿import { Sparkles, Highlighter, Type, MessageSquareText, BadgeCheck } from "lucide-react";
 
 export type FancyTemplateId =
   | "sticker"
@@ -22,7 +22,8 @@ export type FancyTemplateId =
   | "popup_neon_flash"
   | "popup_explosion"
   | "popup_scale_purple"
-  | "popup_shake_yellow";
+  | "popup_shake_yellow"
+  | "popup_half_bg_gold";
 
 type FancyTemplate = {
   id: FancyTemplateId;
@@ -37,7 +38,7 @@ const TEMPLATES: FancyTemplate[] = [
     id: "sticker",
     name: "贴纸描边",
     sample: "爆款推荐",
-    hint: "白色粗描边 + 半透明底板",
+    hint: "白色粗描边 + 半透明底",
     className:
       "rounded-2xl border-2 border-white/90 bg-white/20 px-5 py-3 text-yellow-100 [text-shadow:0_1px_0_rgba(0,0,0,0.45),0_0_4px_rgba(0,0,0,0.22)] [-webkit-text-stroke:1px_rgba(255,255,255,0.9)] shadow-[0_10px_30px_rgba(0,0,0,0.28)] backdrop-blur-md",
   },
@@ -51,7 +52,7 @@ const TEMPLATES: FancyTemplate[] = [
   },
   {
     id: "karaoke",
-    name: "卡拉 OK 描边",
+    name: "卡拉 OK",
     sample: "一起开唱吧",
     hint: "厚描边字幕条",
     className:
@@ -75,7 +76,7 @@ const TEMPLATES: FancyTemplate[] = [
     id: "transparent_outline",
     name: "透明描边",
     sample: "无底板清晰字",
-    hint: "无背景，仅白色描边",
+    hint: "无背景，仅描边",
     className:
       "rounded-lg bg-transparent px-5 py-3 text-white [text-shadow:0_1px_0_rgba(0,0,0,0.35)] [-webkit-text-stroke:1.2px_rgba(255,255,255,0.9)]",
   },
@@ -126,42 +127,42 @@ const TEMPLATES: FancyTemplate[] = [
     className:
       "rounded-md bg-transparent px-5 py-3 text-slate-100 tracking-[0.12em] [-webkit-text-stroke:0.6px_rgba(0,0,0,0.78)]",
   },
-    {
-      id: "yellow_black_bold",
-      name: "黄字黑粗描边",
-      sample: "在他的照片里",
-      hint: "同款短视频字幕风",
-      className:
-        "rounded-md bg-transparent px-5 py-3 text-[#F2D10A] [text-shadow:0_0_0_#000] [-webkit-text-stroke:2px_#000] [paint-order:stroke_fill]",
-    },
-    {
-      id: "yellow_black_glow",
-      name: "金黄发光描边",
-      sample: "限时秒杀",
-      hint: "黄字黑描边 + 橙色微发光",
-      className:
-        "rounded-md bg-transparent px-5 py-3 text-[#FFD54A] [text-shadow:0_0_5px_rgba(255,153,0,0.6)] [-webkit-text-stroke:2px_rgba(0,0,0,0.95)] [paint-order:stroke_fill]",
-    },
-    {
-      id: "yellow_orange_flash",
-      name: "橙黄高亮字",
-      sample: "限时开抢",
-      hint: "更亮更抓眼",
-      className:
-        "rounded-md bg-transparent px-5 py-3 text-[#FFC61A] [text-shadow:0_0_5px_rgba(255,138,0,0.55)] [-webkit-text-stroke:1.8px_rgba(44,26,0,0.95)] [paint-order:stroke_fill]",
-    },
-    {
-      id: "black_plate_yellow",
-      name: "黑底黄字牌",
-      sample: "限时秒杀",
-      hint: "图中同款牌匾感",
-      className:
-        "rounded-md bg-black/40 px-5 py-3 text-[#FFD54A] [-webkit-text-stroke:2px_rgba(0,0,0,0.95)] [paint-order:stroke_fill]",
-    },
+  {
+    id: "yellow_black_bold",
+    name: "黄字黑粗描边",
+    sample: "在他的照片里",
+    hint: "短视频高对比",
+    className:
+      "rounded-md bg-transparent px-5 py-3 text-[#F2D10A] [text-shadow:0_0_0_#000] [-webkit-text-stroke:2px_#000] [paint-order:stroke_fill]",
+  },
+  {
+    id: "yellow_black_glow",
+    name: "金黄发光描边",
+    sample: "限时秒杀",
+    hint: "黄字黑描边 + 橙色微光",
+    className:
+      "rounded-md bg-transparent px-5 py-3 text-[#FFD54A] [text-shadow:0_0_5px_rgba(255,153,0,0.6)] [-webkit-text-stroke:2px_rgba(0,0,0,0.95)] [paint-order:stroke_fill]",
+  },
+  {
+    id: "yellow_orange_flash",
+    name: "橙黄高亮字",
+    sample: "限时开抢",
+    hint: "更亮更抓眼",
+    className:
+      "rounded-md bg-transparent px-5 py-3 text-[#FFC61A] [text-shadow:0_0_5px_rgba(255,138,0,0.55)] [-webkit-text-stroke:1.8px_rgba(44,26,0,0.95)] [paint-order:stroke_fill]",
+  },
+  {
+    id: "black_plate_yellow",
+    name: "黑底黄字牌",
+    sample: "限时秒杀",
+    hint: "牌匾风",
+    className:
+      "rounded-md bg-black/40 px-5 py-3 text-[#FFD54A] [-webkit-text-stroke:2px_rgba(0,0,0,0.95)] [paint-order:stroke_fill]",
+  },
   {
     id: "popup_zoom_gold",
     name: "弹出-金色爆炸",
-    sample: "哇哦！",
+    sample: "哇哦",
     hint: "高亮金边",
     className:
       "rounded-md bg-transparent px-5 py-3 text-white [text-shadow:0_0_6px_rgba(255,215,0,0.6)] [-webkit-text-stroke:2px_rgba(255,215,0,0.95)]",
@@ -169,7 +170,7 @@ const TEMPLATES: FancyTemplate[] = [
   {
     id: "popup_bounce_red",
     name: "弹出-红色冲击",
-    sample: "注意！",
+    sample: "注意",
     hint: "强烈冲击感",
     className:
       "rounded-md bg-transparent px-5 py-3 text-red-500 [text-shadow:0_0_5px_rgba(255,69,0,0.55)] [-webkit-text-stroke:2px_rgba(253,224,71,0.95)]",
@@ -177,7 +178,7 @@ const TEMPLATES: FancyTemplate[] = [
   {
     id: "popup_neon_flash",
     name: "弹出-霓虹闪烁",
-    sample: "超赞！",
+    sample: "超赞",
     hint: "霓虹闪现",
     className:
       "rounded-md bg-transparent px-5 py-3 text-cyan-300 [text-shadow:0_0_5px_rgba(34,211,238,0.6)] [-webkit-text-stroke:1.6px_rgba(236,72,153,0.95)]",
@@ -185,7 +186,7 @@ const TEMPLATES: FancyTemplate[] = [
   {
     id: "popup_explosion",
     name: "弹出-炸裂特效",
-    sample: "爆了！",
+    sample: "爆了",
     hint: "爆发感最强",
     className:
       "rounded-md bg-transparent px-5 py-3 text-white [text-shadow:0_0_7px_rgba(249,115,22,0.65)] [-webkit-text-stroke:2px_rgba(239,68,68,0.95)]",
@@ -193,7 +194,7 @@ const TEMPLATES: FancyTemplate[] = [
   {
     id: "popup_scale_purple",
     name: "弹出-紫色缩放",
-    sample: "精彩！",
+    sample: "精彩",
     hint: "优雅弹出",
     className:
       "rounded-md bg-transparent px-5 py-3 text-violet-500 [text-shadow:0_0_5px_rgba(244,114,182,0.45)] [-webkit-text-stroke:1.8px_rgba(255,255,255,0.9)]",
@@ -201,7 +202,7 @@ const TEMPLATES: FancyTemplate[] = [
   {
     id: "popup_shake_yellow",
     name: "弹出-黄色震动",
-    sample: "震撼！",
+    sample: "震撼",
     hint: "漫画震感",
     className:
       "rounded-md bg-transparent px-5 py-3 text-yellow-300 [text-shadow:0_0_4px_rgba(251,191,36,0.45)] [-webkit-text-stroke:2.2px_rgba(0,0,0,0.95)]",
@@ -223,33 +224,33 @@ export function FancyTextShowcase({ selectedTemplate, onSelectTemplate }: FancyT
         </div>
         <div className="max-h-[420px] overflow-y-auto pr-1">
           <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
-          {TEMPLATES.map((item) => {
-            const active = selectedTemplate === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelectTemplate(item.id)}
-                className={`group rounded-md border p-2 text-left transition-all ${
-                  active
-                    ? "border-purple-400 bg-white shadow-[0_4px_12px_rgba(147,51,234,0.2)]"
-                    : "border-purple-100 bg-white/80 hover:border-purple-300 hover:bg-white"
-                }`}
-              >
-                <div className="mb-1 flex items-center justify-between">
-                  <div className="text-[11px] font-semibold text-slate-700">{item.name}</div>
-                  {active ? <BadgeCheck className="h-3 w-3 text-purple-600" /> : <Type className="h-3 w-3 text-slate-400" />}
-                </div>
-                <div className="mb-1 flex min-h-[38px] items-center justify-center rounded-md bg-slate-900/15 p-1">
-                  <span className={`${item.className} text-base font-black tracking-wide`}>{item.sample}</span>
-                </div>
-                <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                  <Highlighter className="h-2.5 w-2.5" />
-                  {item.hint}
-                </div>
-              </button>
-            );
-          })}
+            {TEMPLATES.map((item) => {
+              const active = selectedTemplate === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelectTemplate(item.id)}
+                  className={`group rounded-md border p-2 text-left transition-all ${
+                    active
+                      ? "border-purple-400 bg-white shadow-[0_4px_12px_rgba(147,51,234,0.2)]"
+                      : "border-purple-100 bg-white/80 hover:border-purple-300 hover:bg-white"
+                  }`}
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <div className="text-[11px] font-semibold text-slate-700">{item.name}</div>
+                    {active ? <BadgeCheck className="h-3 w-3 text-purple-600" /> : <Type className="h-3 w-3 text-slate-400" />}
+                  </div>
+                  <div className="mb-1 flex min-h-[38px] items-center justify-center rounded-md bg-slate-900/15 p-1">
+                    <span className={`${item.className} text-base font-black tracking-wide`}>{item.sample}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                    <Highlighter className="h-2.5 w-2.5" />
+                    {item.hint}
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -258,7 +259,7 @@ export function FancyTextShowcase({ selectedTemplate, onSelectTemplate }: FancyT
           <MessageSquareText className="h-2.5 w-2.5" />
           说明
         </div>
-        已选模板会在后端用 FFmpeg 的描边参数渲染，实际视频效果会比预览更明显。
+        <div>这些模板用于主字幕花字展示，弹出模板请在“弹出模板”区域单独选择。</div>
       </div>
     </div>
   );
